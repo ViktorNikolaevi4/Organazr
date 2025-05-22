@@ -17,7 +17,7 @@ struct ContentView: View {
                             // действие кнопки
                         } label: {
                             Image(systemName: "plus.circle.fill") // или "plus.circle.fill"
-                                .font(.system(size: 56))           // диаметр ≈56 pt
+                                .font(.system(size: 64))           // диаметр ≈56 pt
                                 .symbolRenderingMode(.palette)     // красим отдельно заливку и контур
                                 .foregroundStyle(.white, .specialBlue)   // белая заливка, чёрный крест
                                 .shadow(radius: 4, y: 2)           // лёгкая тень
