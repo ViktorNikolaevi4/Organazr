@@ -1,11 +1,6 @@
-//
-//  OrganazrApp.swift
-//  Organazr
-//
-//  Created by Виктор Корольков on 22.05.2025.
-//
 
 import SwiftUI
+import SwiftData
 
 @main
 struct OrganazrApp: App {
@@ -13,5 +8,6 @@ struct OrganazrApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [TaskItem.self])
     }
 }
