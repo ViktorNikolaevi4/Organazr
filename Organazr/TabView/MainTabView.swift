@@ -17,32 +17,31 @@ struct MainTabView: View {
             // 2. Поиск
             SearchView()
                 .tabItem {
-                    Image(systemName: "magnifyingglass")
-                    Text("Поиск")
-                }
-                .tag(1)
+                    // только календарь, без подписи
+                    CalendarTabIcon()
+                }.tag(1)
 
             // 3. Добавить
             AddView()
                 .tabItem {
-                    Image(systemName: "plus.app.fill")
-                    Text("Добавить")
+                    Image(systemName: "clock.arrow.trianglehead.2.counterclockwise.rotate.90")
+                    Text("Привычка")
                 }
                 .tag(2)
 
             // 4. Избранное
             FavoritesView()
                 .tabItem {
-                    Image(systemName: "heart.fill")
-                    Text("Избранное")
+                    Image(systemName: "circle.circle.fill")
+                    Text("Помодоро")
                 }
                 .tag(3)
 
             // 5. Профиль
             ProfileView()
                 .tabItem {
-                    Image(systemName: "person.fill")
-                    Text("Профиль")
+                    Image(systemName: "die.face.4")
+                    Text("Матрица")
                 }
                 .tag(4)
         }
