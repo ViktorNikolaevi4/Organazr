@@ -10,6 +10,7 @@ struct HomeView: View {
     @State private var isAdding = false
     @State private var recentlyCompleted: TaskItem?
     @State private var showUndo = false
+    @State private var selectedTask: TaskItem? = nil
 
     var body: some View {
         NavigationStack {
@@ -28,8 +29,14 @@ struct HomeView: View {
                             .buttonStyle(.plain)
 
                             Text(task.title)
+                            Spacer()
                         }
                         .padding(.vertical, 8)
+                        .padding(.horizontal)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            selectedTask = task
+                        }
                     }
                     .onDelete(perform: delete)
                 }
@@ -54,6 +61,14 @@ struct HomeView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {} label: { Image(systemName: "ellipsis") }
                 }
+            }
+            .sheet(item: $selectedTask) { task in
+              TaskDetailSheet(
+                task: task,
+                onDismiss: { selectedTask = nil }
+              )
+              .presentationDetents([.medium])
+              .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isAdding) {
                 AddTaskSheet { newTitle in
