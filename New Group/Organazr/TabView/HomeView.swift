@@ -1,6 +1,8 @@
 import SwiftUI
 import SwiftData
 
+
+
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
     // Теперь запрашиваем только задачи где isCompleted == false
@@ -28,7 +30,19 @@ struct HomeView: View {
                             }
                             .buttonStyle(.plain)
 
-                            Text(task.title)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(task.title)
+                                    .font(.headline)
+
+                                // показываем первую строку описания
+                                if !task.details.isEmpty {
+                                    Text(task.details)
+                                        .font(.subheadline)
+                                        .foregroundColor(.secondary)
+                                        .lineLimit(1)
+                                }
+                            }
+
                             Spacer()
                         }
                         .padding(.vertical, 8)
