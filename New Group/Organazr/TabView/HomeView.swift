@@ -1,11 +1,9 @@
 import SwiftUI
 import SwiftData
 
-
-
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
-    // Теперь запрашиваем только задачи где isCompleted == false
+    // Запрашиваем только невыполненные задачи
     @Query(filter: #Predicate<TaskItem> { !$0.isCompleted })
     private var tasks: [TaskItem]
 
@@ -19,42 +17,69 @@ struct HomeView: View {
             ZStack(alignment: .bottomLeading) {
                 Color(.systemGray6).ignoresSafeArea()
 
-                List {
-                    ForEach(tasks) { task in
-                        HStack {
-                            Button {
-                                complete(task)
-                            } label: {
-                                Image(systemName: "square")
-                                    .foregroundColor(.primary)
-                            }
-                            .buttonStyle(.plain)
+                if tasks.isEmpty {
+                    // Плейсхолдер пустого состояния
+                    VStack {
+                        Spacer()
+                        VStack(spacing: 16) {
+                            // Замените на вашу картинку
+                            Image("Рисунок")
+                                .resizable()
+                                .scaledToFit()
+                                .frame(maxWidth: 200)
+                            
+                            Text("Нет задач")
+                                .font(.title2)
+                                .foregroundColor(.primary)
+                            
+                            Text("Нажмите кнопку + для добавления")
+                                .foregroundColor(.secondary)
+                        }
+                        .multilineTextAlignment(.center)
+                        .frame(maxWidth: .infinity)
+                        Spacer()
+                    }
+                } else {
+                    // Сам список, когда есть задачи
+                    List {
+                        ForEach(tasks) { task in
+                            HStack {
+                                Button { complete(task) } label: {
+                                    Image(systemName: task.isCompleted
+                                              ? "checkmark.square.fill"
+                                              : "square")
+                                        .foregroundColor(task.isCompleted ? .green : .primary)
+                                }
+                                .buttonStyle(.plain)
 
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(task.title)
-                                    .font(.headline)
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(task.title)
+                                        .font(.headline)
+                                    if !task.details.isEmpty {
+                                        Text(task.details)
+                                            .font(.subheadline)
+                                            .foregroundColor(.secondary)
+                                            .lineLimit(1)
+                                    }
+                                }
 
-                                // показываем первую строку описания
-                                if !task.details.isEmpty {
-                                    Text(task.details)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                        .lineLimit(1)
+                                Spacer()
+
+                                if task.priority != .none {
+                                    Image(systemName: "flag.fill")
+                                        .foregroundColor(flagColor(for: task.priority))
+                                        .font(.system(size: 22))
                                 }
                             }
-
-                            Spacer()
+                            .padding(.vertical, 8)
+                            .padding(.horizontal)
+                            .contentShape(Rectangle())
+                            .onTapGesture { selectedTask = task }
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal)
-                        .contentShape(Rectangle())
-                        .onTapGesture {
-                            selectedTask = task
-                        }
+                        .onDelete(perform: delete)
                     }
-                    .onDelete(perform: delete)
+                    .listStyle(.plain)
                 }
-                .listStyle(.plain)
 
                 plusButton()
 
@@ -77,12 +102,12 @@ struct HomeView: View {
                 }
             }
             .sheet(item: $selectedTask) { task in
-              TaskDetailSheet(
-                task: task,
-                onDismiss: { selectedTask = nil }
-              )
-              .presentationDetents([.medium])
-              .presentationDragIndicator(.visible)
+                TaskDetailSheet(
+                    task: task,
+                    onDismiss: { selectedTask = nil }
+                )
+                .presentationDetents([.medium])
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isAdding) {
                 AddTaskSheet { newTitle in
@@ -96,7 +121,7 @@ struct HomeView: View {
         }
     }
 
-    // MARK: –– UI Helpers
+    // MARK: — UI Helpers
 
     private func plusButton() -> some View {
         VStack {
@@ -126,7 +151,7 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: –– Data operations
+    // MARK: — Data operations
 
     private func addTask(title: String) {
         let newItem = TaskItem(title: title)
@@ -140,11 +165,8 @@ struct HomeView: View {
     }
 
     private func complete(_ task: TaskItem) {
-        // помечаем задачу завершённой,
-        // и поскольку @Query фильтрует только !isCompleted — она сразу исчезнет из списка
         task.isCompleted = true
         recentlyCompleted = task
-
         withAnimation { showUndo = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation { showUndo = false }
@@ -158,5 +180,17 @@ struct HomeView: View {
         withAnimation { showUndo = false }
         recentlyCompleted = nil
     }
+
+    // MARK: — Priority
+
+    private func flagColor(for priority: Priority) -> Color {
+        switch priority {
+        case .high:   return .red
+        case .medium: return .yellow
+        case .low:    return .blue
+        case .none:   return .gray
+        }
+    }
 }
+
 
