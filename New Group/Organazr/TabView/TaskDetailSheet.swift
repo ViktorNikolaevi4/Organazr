@@ -7,6 +7,7 @@ struct TaskDetailSheet: View {
     var onDismiss: () -> Void
 
     @State private var showingPriorityPopover = false
+    @State private var showMoreOptions = false
 
     var body: some View {
         NavigationStack {
@@ -93,11 +94,16 @@ struct TaskDetailSheet: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
-                        // какие-то доп. действия…
+                        showMoreOptions = true
                     } label: {
                         Image(systemName: "ellipsis")
                     }
                 }
+            }
+            .sheet(isPresented: $showMoreOptions) {
+                MoreOptionsView()
+                   .presentationDetents([.fraction(0.75)])
+                   .presentationDragIndicator(.visible)
             }
         }
     }
