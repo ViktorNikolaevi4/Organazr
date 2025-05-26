@@ -11,13 +11,12 @@ struct TaskDetailSheet: View {
 
     @State private var showingPriorityPopover = false
     @State private var showMoreOptions = false
-    @State private var showingAttachmentPopover = false
     @State private var showImagePicker = false
     @State private var showPhotoPicker = false
     @State private var showDocumentScanner = false
     @State private var showTextScanner = false
     @State private var selectedImage: UIImage?
-    @State private var selectedPhotoItem: PhotosPickerItem? // Добавляем состояние для выбранного фото
+    @State private var selectedPhotoItem: PhotosPickerItem?
 
     var body: some View {
         NavigationStack {
@@ -172,8 +171,30 @@ struct TaskDetailSheet: View {
             }
 
             // MARK: Кнопка для добавления вложения
-            Button {
-                showingAttachmentPopover = true
+            Menu {
+                Button(action: {
+                    showPhotoPicker = true
+                }) {
+                    Label("Выбрать фото", systemImage: "photo")
+                }
+
+                Button(action: {
+                    showImagePicker = true
+                }) {
+                    Label("Сделать фото", systemImage: "camera")
+                }
+
+                Button(action: {
+                    showDocumentScanner = true
+                }) {
+                    Label("Сканировать документ", systemImage: "doc.text")
+                }
+
+                Button(action: {
+                    showTextScanner = true
+                }) {
+                    Label("Сканировать текст", systemImage: "textformat")
+                }
             } label: {
                 HStack {
                     Image(systemName: "paperclip")
@@ -182,46 +203,7 @@ struct TaskDetailSheet: View {
                         .foregroundColor(.blue)
                 }
             }
-            .popover(isPresented: $showingAttachmentPopover, attachmentAnchor: .rect(.bounds), arrowEdge: .top) {
-                VStack(alignment: .leading, spacing: 0) {
-                    Button("Выбрать фото") {
-                        showPhotoPicker = true
-                        showingAttachmentPopover = false
-                    }
-                    .buttonStyle(.borderless)
-                    .padding()
 
-                    Divider()
-
-                    Button("Сделать фото") {
-                        showImagePicker = true
-                        showingAttachmentPopover = false
-                    }
-                    .buttonStyle(.borderless)
-                    .padding()
-
-                    Divider()
-
-                    Button("Сканировать документ") {
-                        showDocumentScanner = true
-                        showingAttachmentPopover = false
-                    }
-                    .buttonStyle(.borderless)
-                    .padding()
-
-                    Divider()
-
-                    Button("Сканировать текст") {
-                        showTextScanner = true
-                        showingAttachmentPopover = false
-                    }
-                    .buttonStyle(.borderless)
-                    .padding()
-                }
-                .frame(width: 250)
-                .background(Color(.systemBackground))
-                .cornerRadius(8)
-            }
             Spacer()
         }
         .padding()
