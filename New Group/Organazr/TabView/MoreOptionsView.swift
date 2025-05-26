@@ -21,6 +21,8 @@ private let menuItems: [MenuItem] = [
 
 struct MoreOptionsView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+
     @Bindable var task: TaskItem
     @State private var showActivityView = false
 
@@ -59,7 +61,8 @@ struct MoreOptionsView: View {
                         title: "Удалить",
                         iconColor: .red
                     ) {
-                        // TODO: action
+                        modelContext.delete(task)
+                        dismiss()
                     }
                 }
                 .padding(.horizontal)
