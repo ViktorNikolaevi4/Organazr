@@ -59,8 +59,12 @@ struct HomeView: View {
                                         Text("Закреплено")
                                             .font(.headline)
                                         Spacer()
+                                    HStack(spacing: 4) {
+                                        Text("\(pinned.count)")
+                                            .foregroundColor(.secondary)
                                         Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
                                             .foregroundColor(.secondary)
+                                        }
                                     }
                                     .padding(.vertical, 4)
                                 }
