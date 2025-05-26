@@ -1,5 +1,24 @@
 import SwiftUI
 
+// Модель пункта меню
+private struct MenuItem: Identifiable {
+    let id = UUID()
+    let title: String
+    let systemImage: String
+}
+
+// Статический набор пунктов для примера
+private let menuItems: [MenuItem] = [
+    .init(title: "Добавить подзадачу", systemImage: "plus.square.on.square"),
+    .init(title: "Связать родительскую задачу", systemImage: "link"),
+    .init(title: "Сфокусируйся", systemImage: "target"),
+    .init(title: "Преобразовать в заметку", systemImage: "doc.text"),
+    .init(title: "Прикрепить", systemImage: "paperclip"),
+    .init(title: "Метки", systemImage: "tag"),
+    .init(title: "Активность в задаче", systemImage: "list.bullet"),
+    .init(title: "Добавить в Live Activity", systemImage: "pin")
+]
+
 struct MoreOptionsView: View {
     var body: some View {
         ZStack {
@@ -9,7 +28,7 @@ struct MoreOptionsView: View {
 
             VStack(spacing: 24) {
                 // Верхняя панель из четырёх кнопок
-                HStack(spacing: 16) {
+                HStack(alignment: .top, spacing: 16) {
                     OptionButton(
                         systemName: "pin.fill",
                         title: "Закрепить",
@@ -33,12 +52,36 @@ struct MoreOptionsView: View {
                 }
                 .padding(.horizontal)
 
-                Spacer()
-            }
-            .padding(.top)
-        }
-    }
-}
+                VStack(spacing: 0) {
+                     ForEach(menuItems.indices, id: \.self) { idx in
+                         let item = menuItems[idx]
+                         HStack {
+                             Text(item.title)
+                                 .font(.body)
+                             Spacer()
+                             Image(systemName: item.systemImage)
+                                 .foregroundColor(.secondary)
+                         }
+                         .padding(.vertical, 14)
+                         .padding(.horizontal)
+                         .background(Color.white)
+                         // разделитель между ячейками
+                         if idx < menuItems.count - 1 {
+                             Divider()
+                                 .padding(.leading)
+                         }
+                     }
+                 }
+                 .background(Color.white)
+                 .cornerRadius(16)
+                 .padding(.horizontal)
+
+                 Spacer()
+             }
+             .padding(.top)
+         }
+     }
+ }
 
 private struct OptionButton: View {
     let systemName: String
@@ -51,7 +94,7 @@ private struct OptionButton: View {
                 // TODO
             } label: {
                 Image(systemName: systemName)
-                    .font(.system(size: 18))
+                    .font(.system(size: 20))
                     .foregroundColor(bgColor)          // иконка — в цвете bgColor
                     .frame(width: 56, height: 56)
                     .background(Color.white)           // фон — белый
@@ -68,6 +111,7 @@ private struct OptionButton: View {
                 .lineLimit(1)
                 .fixedSize(horizontal: true, vertical: false)
         }
+        .frame(maxWidth: .infinity, alignment: .top)
     }
 }
 
