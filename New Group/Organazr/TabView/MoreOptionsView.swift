@@ -22,6 +22,7 @@ private let menuItems: [MenuItem] = [
 struct MoreOptionsView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var task: TaskItem
+    @State private var showActivityView = false
 
     var body: some View {
         ZStack {
@@ -44,7 +45,7 @@ struct MoreOptionsView: View {
                         title: "Поделиться",
                         iconColor: .green
                     ) {
-                        // TODO: action
+                        showActivityView = true
                     }
                     OptionButton(
                         systemName: "xmark.circle.fill",
@@ -89,9 +90,19 @@ struct MoreOptionsView: View {
                 Spacer()
             }
             .padding(.top)
+            .sheet(isPresented: $showActivityView) {
+                ActivityView(items: [shareText()])
+            }
         }
     }
-}
+    private func shareText() -> String {
+            var text = "Задача: \(task.title)"
+            if !task.details.isEmpty {
+                text += "\nОписание: \(task.details)"
+            }
+            return text
+        }
+    }
 
 private struct OptionButton: View {
     let systemName: String

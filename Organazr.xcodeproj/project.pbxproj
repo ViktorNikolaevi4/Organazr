@@ -15,10 +15,28 @@
 		B612870F2DDF243200F17B3B /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		B612877E2DE45E5D00F17B3B /* Exceptions for "АктивитиХуиити" folder in "Organazr" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				ActivityView.swift,
+			);
+			target = B61286F12DDF085D00F17B3B /* Organazr */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B61286F42DDF085D00F17B3B /* Organazr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			path = Organazr;
+			sourceTree = "<group>";
+		};
+		B612877B2DE45E3200F17B3B /* АктивитиХуиити */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				B612877E2DE45E5D00F17B3B /* Exceptions for "АктивитиХуиити" folder in "Organazr" target */,
+			);
+			path = "АктивитиХуиити";
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -37,6 +55,7 @@
 		B61286E92DDF085D00F17B3B = {
 			isa = PBXGroup;
 			children = (
+				B612877B2DE45E3200F17B3B /* АктивитиХуиити */,
 				B612870E2DDF240C00F17B3B /* Models */,
 				B612870D2DDF23ED00F17B3B /* New Group */,
 				B61286F32DDF085D00F17B3B /* Products */,
