@@ -12,17 +12,20 @@ final class TaskItem: Identifiable {
     var isCompleted: Bool = false
     var details: String = ""
     var priority: Priority    // без значения по-умолчанию здесь
+    var isPinned: Bool = false
 
     init(
         title: String,
         details: String = "",
         isCompleted: Bool = false,
-        priority: Priority = .none  // а дефолт для приоритета задаём в инициализаторе
+        priority: Priority = .none,
+        isPinned: Bool = false
     ) {
         self.title       = title
         self.details     = details
         self.isCompleted = isCompleted
         self.priority    = priority
+        self.isPinned    = isPinned
     }
 }
 

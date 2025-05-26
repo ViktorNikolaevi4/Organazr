@@ -3,7 +3,6 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
-    // Запрашиваем только невыполненные задачи
     @Query(filter: #Predicate<TaskItem> { !$0.isCompleted })
     private var tasks: [TaskItem]
 
@@ -11,6 +10,7 @@ struct HomeView: View {
     @State private var recentlyCompleted: TaskItem?
     @State private var showUndo = false
     @State private var selectedTask: TaskItem? = nil
+    @State private var isPinnedExpanded = true
 
     var body: some View {
         NavigationStack {
@@ -18,67 +18,70 @@ struct HomeView: View {
                 Color(.systemGray6).ignoresSafeArea()
 
                 if tasks.isEmpty {
-                    // Плейсхолдер пустого состояния
                     VStack {
                         Spacer()
                         VStack(spacing: 16) {
-                            // Замените на вашу картинку
                             Image("Рисунок")
                                 .resizable()
                                 .scaledToFit()
                                 .frame(maxWidth: 200)
-                            
                             Text("Нет задач")
                                 .font(.title2)
-                                .foregroundColor(.primary)
-                            
                             Text("Нажмите кнопку + для добавления")
                                 .foregroundColor(.secondary)
                         }
                         .multilineTextAlignment(.center)
-                        .frame(maxWidth: .infinity)
                         Spacer()
                     }
                 } else {
-                    // Сам список, когда есть задачи
                     List {
-                        ForEach(tasks) { task in
-                            HStack {
-                                Button { complete(task) } label: {
-                                    Image(systemName: task.isCompleted
-                                              ? "checkmark.square.fill"
-                                              : "square")
-                                        .foregroundColor(task.isCompleted ? .green : .primary)
-                                }
-                                .buttonStyle(.plain)
-
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(task.title)
-                                        .font(.headline)
-                                    if !task.details.isEmpty {
-                                        Text(task.details)
-                                            .font(.subheadline)
-                                            .foregroundColor(.secondary)
-                                            .lineLimit(1)
+                        // MARK: — Секция «Закреплено» с кастомным header —
+                        let pinned = tasks.filter(\.isPinned)
+                        if !pinned.isEmpty {
+                            Section {
+                                if isPinnedExpanded { // Показываем задачи, только если секция развернута
+                                    ForEach(pinned) { task in
+                                        row(for: task)
+                                    }
+                                    .onDelete { idxs in
+                                        delete(at: idxs, in: pinned)
                                     }
                                 }
+                            } header: {
+                                Button(action: {
+                                    withAnimation {
+                                        isPinnedExpanded.toggle() // Переключаем состояние
+                                    }
+                                }) {
+                                    HStack {
+                                        Image(systemName: "pin.fill")
+                                            .foregroundColor(.orange)
+                                        Text("Закреплено")
+                                            .font(.headline)
+                                        Spacer()
+                                        Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
+                                            .foregroundColor(.secondary)
+                                    }
+                                    .padding(.vertical, 4)
+                                }
+                                .buttonStyle(.plain) // Убираем стандартный стиль кнопки
+                            }
+                        }
 
-                                Spacer()
-
-                                if task.priority != .none {
-                                    Image(systemName: "flag.fill")
-                                        .foregroundColor(flagColor(for: task.priority))
-                                        .font(.system(size: 22))
+                        // MARK: — Секция «Задачи» —
+                        let normal = tasks.filter { !$0.isPinned }
+                        if !normal.isEmpty {
+                            Section("Задачи") {
+                                ForEach(normal) { task in
+                                    row(for: task)
+                                }
+                                .onDelete { idxs in
+                                    delete(at: idxs, in: normal)
                                 }
                             }
-                            .padding(.vertical, 8)
-                            .padding(.horizontal)
-                            .contentShape(Rectangle())
-                            .onTapGesture { selectedTask = task }
                         }
-                        .onDelete(perform: delete)
                     }
-                    .listStyle(.plain)
+                    .listStyle(.insetGrouped)
                 }
 
                 plusButton()
@@ -102,10 +105,9 @@ struct HomeView: View {
                 }
             }
             .sheet(item: $selectedTask) { task in
-                TaskDetailSheet(
-                    task: task,
-                    onDismiss: { selectedTask = nil }
-                )
+                TaskDetailSheet(task: task) {
+                    selectedTask = nil
+                }
                 .presentationDetents([.medium])
                 .presentationDragIndicator(.visible)
             }
@@ -121,7 +123,42 @@ struct HomeView: View {
         }
     }
 
-    // MARK: — UI Helpers
+    @ViewBuilder
+    private func row(for task: TaskItem) -> some View {
+        HStack {
+            // чекбокс
+            Button {
+                complete(task)
+            } label: {
+                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                    .foregroundColor(task.isCompleted ? .green : .primary)
+            }
+            .buttonStyle(.plain)
+
+            // заголовок + описание
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.headline)
+                if !task.details.isEmpty {
+                    Text(task.details)
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            // флаг приоритета
+            if task.priority != .none {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(flagColor(for: task.priority))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { selectedTask = task }
+        .padding(.vertical, 8)
+    }
 
     private func plusButton() -> some View {
         VStack {
@@ -151,16 +188,14 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    // MARK: — Data operations
-
     private func addTask(title: String) {
         let newItem = TaskItem(title: title)
         modelContext.insert(newItem)
     }
 
-    private func delete(at offsets: IndexSet) {
+    private func delete(at offsets: IndexSet, in bucket: [TaskItem]) {
         for idx in offsets {
-            modelContext.delete(tasks[idx])
+            modelContext.delete(bucket[idx])
         }
     }
 
@@ -175,13 +210,11 @@ struct HomeView: View {
     }
 
     private func undoComplete() {
-        guard let task = recentlyCompleted else { return }
-        task.isCompleted = false
+        guard let t = recentlyCompleted else { return }
+        t.isCompleted = false
         withAnimation { showUndo = false }
         recentlyCompleted = nil
     }
-
-    // MARK: — Priority
 
     private func flagColor(for priority: Priority) -> Color {
         switch priority {
@@ -192,5 +225,3 @@ struct HomeView: View {
         }
     }
 }
-
-

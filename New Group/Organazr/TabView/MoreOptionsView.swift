@@ -20,9 +20,11 @@ private let menuItems: [MenuItem] = [
 ]
 
 struct MoreOptionsView: View {
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var task: TaskItem
+
     var body: some View {
         ZStack {
-            // фон на весь экран
             Color(.systemGray6)
                 .ignoresSafeArea()
 
@@ -30,76 +32,95 @@ struct MoreOptionsView: View {
                 // Верхняя панель из четырёх кнопок
                 HStack(alignment: .top, spacing: 16) {
                     OptionButton(
-                        systemName: "pin.fill",
-                        title: "Закрепить",
-                        bgColor: .yellow
-                    )
+                        systemName: task.isPinned ? "pin.slash" : "pin.fill",
+                        title: task.isPinned ? "Открепить" : "Закрепить",
+                        iconColor: .orange
+                    ) {
+                        task.isPinned.toggle()
+                        dismiss()
+                    }
                     OptionButton(
                         systemName: "square.and.arrow.up",
                         title: "Поделиться",
-                        bgColor: .green
-                    )
+                        iconColor: .green
+                    ) {
+                        // TODO: action
+                    }
                     OptionButton(
                         systemName: "xmark.circle.fill",
                         title: "Не буду делать",
-                        bgColor: .blue
-                    )
+                        iconColor: .blue
+                    ) {
+                        // TODO: action
+                    }
                     OptionButton(
                         systemName: "trash.fill",
                         title: "Удалить",
-                        bgColor: .red
-                    )
+                        iconColor: .red
+                    ) {
+                        // TODO: action
+                    }
                 }
                 .padding(.horizontal)
 
                 VStack(spacing: 0) {
-                     ForEach(menuItems.indices, id: \.self) { idx in
-                         let item = menuItems[idx]
-                         HStack {
-                             Text(item.title)
-                                 .font(.body)
-                             Spacer()
-                             Image(systemName: item.systemImage)
-                                 .foregroundColor(.secondary)
-                         }
-                         .padding(.vertical, 14)
-                         .padding(.horizontal)
-                         .background(Color.white)
-                         // разделитель между ячейками
-                         if idx < menuItems.count - 1 {
-                             Divider()
-                                 .padding(.leading)
-                         }
-                     }
-                 }
-                 .background(Color.white)
-                 .cornerRadius(16)
-                 .padding(.horizontal)
+                    ForEach(menuItems.indices, id: \.self) { idx in
+                        let item = menuItems[idx]
+                        HStack {
+                            Text(item.title)
+                                .font(.body)
+                            Spacer()
+                            Image(systemName: item.systemImage)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal)
+                        .background(Color.white)
+                        if idx < menuItems.count - 1 {
+                            Divider()
+                                .padding(.leading)
+                        }
+                    }
+                }
+                .background(Color.white)
+                .cornerRadius(16)
+                .padding(.horizontal)
 
-                 Spacer()
-             }
-             .padding(.top)
-         }
-     }
- }
+                Spacer()
+            }
+            .padding(.top)
+        }
+    }
+}
 
 private struct OptionButton: View {
     let systemName: String
     let title: String
     let bgColor: Color
+    let action: () -> Void
+
+    init(systemName: String,
+         title: String,
+         iconColor: Color,
+         action: @escaping () -> Void) {
+        self.systemName = systemName
+        self.title = title
+        self.bgColor = iconColor
+        self.action = action
+    }
 
     var body: some View {
         VStack(spacing: 8) {
             Button {
-                // TODO
+                action() // Исправляем вызов действия
             } label: {
                 Image(systemName: systemName)
                     .font(.system(size: 20))
-                    .foregroundColor(bgColor)          // иконка — в цвете bgColor
+                    .foregroundColor(bgColor)
                     .frame(width: 56, height: 56)
-                    .background(Color.white)           // фон — белый
+                    .background(Color.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-                    .overlay(                          // тонкая граница
+                    .overlay(
                         RoundedRectangle(cornerRadius: 12, style: .continuous)
                             .stroke(bgColor, lineWidth: 1)
                     )

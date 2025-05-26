@@ -101,7 +101,7 @@ struct TaskDetailSheet: View {
                 }
             }
             .sheet(isPresented: $showMoreOptions) {
-                MoreOptionsView()
+                MoreOptionsView(task: task)
                    .presentationDetents([.fraction(0.75)])
                    .presentationDragIndicator(.visible)
             }
