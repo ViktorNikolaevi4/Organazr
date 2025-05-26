@@ -8,11 +8,18 @@
 
 /* Begin PBXBuildFile section */
 		B61287102DDF243200F17B3B /* TaskItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = B612870F2DDF243200F17B3B /* TaskItem.swift */; };
+		B61287812DE4923100F17B3B /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287802DE4923100F17B3B /* ImagePicker.swift */; };
+		B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287822DE4925500F17B3B /* DocumentScanner.swift */; };
+		B61287852DE4927700F17B3B /* TextScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287842DE4927700F17B3B /* TextScanner.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		B61286F22DDF085D00F17B3B /* Organazr.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Organazr.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B612870F2DDF243200F17B3B /* TaskItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskItem.swift; sourceTree = "<group>"; };
+		B61287802DE4923100F17B3B /* ImagePicker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImagePicker.swift; sourceTree = "<group>"; };
+		B61287822DE4925500F17B3B /* DocumentScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScanner.swift; sourceTree = "<group>"; };
+		B61287842DE4927700F17B3B /* TextScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScanner.swift; sourceTree = "<group>"; };
+		B61287862DE4961600F17B3B /* Organazr-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Organazr-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -55,6 +62,8 @@
 		B61286E92DDF085D00F17B3B = {
 			isa = PBXGroup;
 			children = (
+				B61287862DE4961600F17B3B /* Organazr-Info.plist */,
+				B612877F2DE4920800F17B3B /* КамераИСканер */,
 				B612877B2DE45E3200F17B3B /* АктивитиХуиити */,
 				B612870E2DDF240C00F17B3B /* Models */,
 				B612870D2DDF23ED00F17B3B /* New Group */,
@@ -84,6 +93,16 @@
 				B612870F2DDF243200F17B3B /* TaskItem.swift */,
 			);
 			path = Models;
+			sourceTree = "<group>";
+		};
+		B612877F2DE4920800F17B3B /* КамераИСканер */ = {
+			isa = PBXGroup;
+			children = (
+				B61287802DE4923100F17B3B /* ImagePicker.swift */,
+				B61287822DE4925500F17B3B /* DocumentScanner.swift */,
+				B61287842DE4927700F17B3B /* TextScanner.swift */,
+			);
+			path = "КамераИСканер";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -160,6 +179,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B61287812DE4923100F17B3B /* ImagePicker.swift in Sources */,
+				B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */,
+				B61287852DE4927700F17B3B /* TextScanner.swift in Sources */,
 				B61287102DDF243200F17B3B /* TaskItem.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -295,6 +317,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Organazr-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -325,6 +348,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "Organazr-Info.plist";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

@@ -13,19 +13,22 @@ final class TaskItem: Identifiable {
     var details: String = ""
     var priority: Priority    // без значения по-умолчанию здесь
     var isPinned: Bool = false
+    var imageData: Data? = nil
 
     init(
         title: String,
         details: String = "",
         isCompleted: Bool = false,
         priority: Priority = .none,
-        isPinned: Bool = false
+        isPinned: Bool = false,
+        imageData: Data? = nil
     ) {
         self.title       = title
         self.details     = details
         self.isCompleted = isCompleted
         self.priority    = priority
         self.isPinned    = isPinned
+        self.imageData   = imageData
     }
 }
 
