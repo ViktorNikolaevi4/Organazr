@@ -91,6 +91,7 @@ struct TaskDetailSheet: View {
     }
 
     private var contentView: some View {
+      ScrollView {
         VStack(alignment: .leading, spacing: 16) {
             // MARK: — Кнопки управления задачей
             HStack {
@@ -210,6 +211,7 @@ struct TaskDetailSheet: View {
         }
         .padding()
     }
+}
 
     private func flagColor(for priority: Priority) -> Color {
         switch priority {
@@ -244,4 +246,3 @@ struct TaskDetailSheet: View {
         }
     }
 }
-//.foregroundStyle(flagColor(for: task.priority))

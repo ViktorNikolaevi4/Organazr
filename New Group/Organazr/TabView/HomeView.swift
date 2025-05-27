@@ -11,6 +11,7 @@ struct HomeView: View {
     @State private var showUndo = false
     @State private var selectedTask: TaskItem? = nil
     @State private var isPinnedExpanded = true
+    @State private var sheetDetent: PresentationDetent = .medium
 
     var body: some View {
         NavigationStack {
@@ -111,9 +112,15 @@ struct HomeView: View {
             .sheet(item: $selectedTask) { task in
                 TaskDetailSheet(task: task) {
                     selectedTask = nil
+                    sheetDetent = .medium
                 }
-                .presentationDetents([.medium])
+                .presentationDetents([.medium, .large], selection: $sheetDetent)
                 .presentationDragIndicator(.visible)
+                .onChange(of: task.imageData) { newData in
+                    if newData != nil {
+                        sheetDetent = .large  // при наличии картинки разворачиваем
+                    }
+                }
             }
             .sheet(isPresented: $isAdding) {
                 AddTaskSheet { newTitle in
