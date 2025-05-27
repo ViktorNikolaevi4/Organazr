@@ -11,6 +11,7 @@
 		B61287812DE4923100F17B3B /* ImagePicker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287802DE4923100F17B3B /* ImagePicker.swift */; };
 		B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287822DE4925500F17B3B /* DocumentScanner.swift */; };
 		B61287852DE4927700F17B3B /* TextScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287842DE4927700F17B3B /* TextScanner.swift */; };
+		B61287A42DE5CB5900F17B3B /* MenuModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287A32DE5CB5900F17B3B /* MenuModalView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -20,6 +21,7 @@
 		B61287822DE4925500F17B3B /* DocumentScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentScanner.swift; sourceTree = "<group>"; };
 		B61287842DE4927700F17B3B /* TextScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScanner.swift; sourceTree = "<group>"; };
 		B61287862DE4961600F17B3B /* Organazr-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Organazr-Info.plist"; sourceTree = "<group>"; };
+		B61287A32DE5CB5900F17B3B /* MenuModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModalView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -62,6 +64,7 @@
 		B61286E92DDF085D00F17B3B = {
 			isa = PBXGroup;
 			children = (
+				B61287A22DE5CB3100F17B3B /* МенюСТремялиниями */,
 				B61287862DE4961600F17B3B /* Organazr-Info.plist */,
 				B612877F2DE4920800F17B3B /* КамераИСканер */,
 				B612877B2DE45E3200F17B3B /* АктивитиХуиити */,
@@ -103,6 +106,14 @@
 				B61287842DE4927700F17B3B /* TextScanner.swift */,
 			);
 			path = "КамераИСканер";
+			sourceTree = "<group>";
+		};
+		B61287A22DE5CB3100F17B3B /* МенюСТремялиниями */ = {
+			isa = PBXGroup;
+			children = (
+				B61287A32DE5CB5900F17B3B /* MenuModalView.swift */,
+			);
+			path = "МенюСТремялиниями";
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -179,6 +190,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B61287A42DE5CB5900F17B3B /* MenuModalView.swift in Sources */,
 				B61287812DE4923100F17B3B /* ImagePicker.swift in Sources */,
 				B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */,
 				B61287852DE4927700F17B3B /* TextScanner.swift in Sources */,

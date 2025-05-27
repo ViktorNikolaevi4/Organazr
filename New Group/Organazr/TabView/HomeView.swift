@@ -12,6 +12,8 @@ struct HomeView: View {
     @State private var selectedTask: TaskItem? = nil
     @State private var isPinnedExpanded = true
     @State private var sheetDetent: PresentationDetent = .medium
+    @State private var showMenu = false
+    @State private var selectedSection: MenuSection = .tasks
 
     var body: some View {
         NavigationStack {
@@ -103,7 +105,9 @@ struct HomeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button {} label: { Image(systemName: "line.3.horizontal") }
+                    Button {
+                        showMenu = true
+                    } label: { Image(systemName: "line.3.horizontal") }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {} label: { Image(systemName: "ellipsis") }
@@ -130,6 +134,14 @@ struct HomeView: View {
                 .presentationDetents([.fraction(0.4)])
                 .presentationDragIndicator(.visible)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
+            }
+            .sheet(isPresented: $showMenu) {
+                MenuModalView { section in
+                    // этот код выполнится после dismiss() из MenuModalView
+                    selectedSection = section
+                }
+                .presentationDetents([.fraction(0.95)])
+                .presentationDragIndicator(.visible)
             }
         }
     }
