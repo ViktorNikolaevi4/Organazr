@@ -6,28 +6,44 @@ enum Priority: String, CaseIterable, Sendable, Codable {
 }
 
 @Model
+final class TaskList: Identifiable {
+    var id: UUID = UUID()
+    var title: String
+    var tasks: [TaskItem] = []
+
+    init(title: String) {
+        self.title = title
+    }
+}
+
+@Model
 final class TaskItem: Identifiable {
     var id = UUID()
     var title: String
     var isCompleted: Bool = false
     var details: String = ""
-    var priority: Priority    // без значения по-умолчанию здесь
+    var priority: Priority
     var isPinned: Bool = false
     var imageData: Data? = nil
+    var list: TaskList?
 
     init(
         title: String,
+        list: TaskList? = nil,
         details: String = "",
         isCompleted: Bool = false,
         priority: Priority = .none,
         isPinned: Bool = false,
         imageData: Data? = nil
     ) {
-        self.title       = title
-        self.details     = details
+        self.title = title
+        self.list = list
+        self.details = details
         self.isCompleted = isCompleted
-        self.priority    = priority
-        self.isPinned    = isPinned
-        self.imageData   = imageData
+        self.priority = priority
+        self.isPinned = isPinned
+        self.imageData = imageData
     }
 }
+// priority: Priority = .none,
+//self.priority    = priority

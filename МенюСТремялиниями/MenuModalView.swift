@@ -3,6 +3,10 @@ import SwiftUI
 enum MenuSection {
     case all, tomorrow, tasks, done, notDone, trash
 }
+enum MenuSelection {
+  case system(MenuSection)  // ваши «Все», «Завтра» и т.п.
+  case custom(TaskList)     // пользовательский
+}
 
 import SwiftUI
 import SwiftData
@@ -10,7 +14,7 @@ import SwiftData
 struct MenuModalView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss)      private var dismiss
-    let onSelect: (MenuSection) -> Void
+    let onSelect: (MenuSelection) -> Void
 
     // Открыть sheet для создания списка
     @State private var showAddNew = false
@@ -41,12 +45,10 @@ struct MenuModalView: View {
                     if !userLists.isEmpty {
                         Section("Мои списки") {
                             ForEach(userLists) { list in
-                                Button {
-                                    // здесь можно выбрать этот список
-                                    // например, вызвать onSelect или другой callback
-                                } label: {
-                                    Label(list.title, systemImage: "list.bullet")
-                                }
+                              Button {
+                                dismiss()
+                                onSelect(.custom(list))
+                              } label: { Label(list.title, systemImage: "list.bullet") }
                             }
                         }
                     }
@@ -113,7 +115,7 @@ struct MenuModalView: View {
     }
 
     private func select(_ section: MenuSection) {
-        dismiss()
-        onSelect(section)
+      dismiss()
+      onSelect(.system(section))
     }
 }

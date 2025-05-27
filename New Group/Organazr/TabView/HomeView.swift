@@ -3,9 +3,11 @@ import SwiftData
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
-    @Query(filter: #Predicate<TaskItem> { !$0.isCompleted })
-    private var tasks: [TaskItem]
 
+    @Query(sort: [SortDescriptor<TaskItem>(\.title, order: .forward)])
+    private var allTasks: [TaskItem]
+
+    @State private var selectedList: TaskList? = nil
     @State private var isAdding = false
     @State private var recentlyCompleted: TaskItem?
     @State private var showUndo = false
@@ -14,6 +16,40 @@ struct HomeView: View {
     @State private var sheetDetent: PresentationDetent = .medium
     @State private var showMenu = false
     @State private var selectedSection: MenuSection = .tasks
+
+    // Фильтрация задач: только незавершенные и только из текущего списка или без списка
+    private var tasks: [TaskItem] {
+        allTasks.filter { item in
+            let notDone = !item.isCompleted
+            if let list = selectedList {
+                return notDone && item.list?.id == list.id
+            } else {
+                return notDone && item.list == nil // Показываем только задачи без списка, если список не выбран
+            }
+        }
+    }
+
+    // Динамический заголовок в зависимости от выбранного списка или секции
+    private var navigationTitle: String {
+        if let list = selectedList {
+            return list.title
+        } else {
+            switch selectedSection {
+            case .all:
+                return "Все"
+            case .tomorrow:
+                return "Завтра"
+            case .tasks:
+                return "Задачи"
+            case .done:
+                return "Выполнено"
+            case .notDone:
+                return "Не будет выполнено"
+            case .trash:
+                return "Корзина"
+            }
+        }
+    }
 
     var body: some View {
         NavigationStack {
@@ -38,11 +74,10 @@ struct HomeView: View {
                     }
                 } else {
                     List {
-                        // MARK: — Секция «Закреплено» с кастомным header —
                         let pinned = tasks.filter(\.isPinned)
                         if !pinned.isEmpty {
                             Section {
-                                if isPinnedExpanded { // Показываем задачи, только если секция развернута
+                                if isPinnedExpanded {
                                     ForEach(pinned) { task in
                                         row(for: task)
                                     }
@@ -53,7 +88,7 @@ struct HomeView: View {
                             } header: {
                                 Button(action: {
                                     withAnimation {
-                                        isPinnedExpanded.toggle() // Переключаем состояние
+                                        isPinnedExpanded.toggle()
                                     }
                                 }) {
                                     HStack {
@@ -62,20 +97,19 @@ struct HomeView: View {
                                         Text("Закреплено")
                                             .font(.headline)
                                         Spacer()
-                                    HStack(spacing: 4) {
-                                        Text("\(pinned.count)")
-                                            .foregroundColor(.secondary)
-                                        Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
-                                            .foregroundColor(.secondary)
+                                        HStack(spacing: 4) {
+                                            Text("\(pinned.count)")
+                                                .foregroundColor(.secondary)
+                                            Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
+                                                .foregroundColor(.secondary)
                                         }
                                     }
                                     .padding(.vertical, 4)
                                 }
-                                .buttonStyle(.plain) // Убираем стандартный стиль кнопки
+                                .buttonStyle(.plain)
                             }
                         }
 
-                        // MARK: — Секция «Задачи» —
                         let normal = tasks.filter { !$0.isPinned }
                         if !normal.isEmpty {
                             Section("Задачи") {
@@ -101,16 +135,20 @@ struct HomeView: View {
                         .animation(.easeOut, value: showUndo)
                 }
             }
-            .navigationTitle("Задачи")
+            .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showMenu = true
-                    } label: { Image(systemName: "line.3.horizontal") }
+                    } label: {
+                        Image(systemName: "line.3.horizontal")
+                    }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {} label: { Image(systemName: "ellipsis") }
+                    Button {} label: {
+                        Image(systemName: "ellipsis")
+                    }
                 }
             }
             .sheet(item: $selectedTask) { task in
@@ -122,7 +160,7 @@ struct HomeView: View {
                 .presentationDragIndicator(.visible)
                 .onChange(of: task.imageData) { newData in
                     if newData != nil {
-                        sheetDetent = .large  // при наличии картинки разворачиваем
+                        sheetDetent = .large
                     }
                 }
             }
@@ -136,12 +174,15 @@ struct HomeView: View {
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             }
             .sheet(isPresented: $showMenu) {
-                MenuModalView { section in
-                    // этот код выполнится после dismiss() из MenuModalView
-                    selectedSection = section
+                MenuModalView { selection in
+                    switch selection {
+                    case .system(let sec):
+                        selectedList = nil
+                        selectedSection = sec
+                    case .custom(let list):
+                        selectedList = list
+                    }
                 }
-                .presentationDetents([.fraction(0.95)])
-                .presentationDragIndicator(.visible)
             }
         }
     }
@@ -149,7 +190,6 @@ struct HomeView: View {
     @ViewBuilder
     private func row(for task: TaskItem) -> some View {
         HStack {
-            // чекбокс
             Button {
                 complete(task)
             } label: {
@@ -158,7 +198,6 @@ struct HomeView: View {
             }
             .buttonStyle(.plain)
 
-            // заголовок + описание
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.headline)
@@ -180,7 +219,6 @@ struct HomeView: View {
 
             Spacer()
 
-            // флаг приоритета
             if task.priority != .none {
                 Image(systemName: "flag.fill")
                     .foregroundColor(flagColor(for: task.priority))
@@ -220,7 +258,7 @@ struct HomeView: View {
     }
 
     private func addTask(title: String) {
-        let newItem = TaskItem(title: title)
+        let newItem = TaskItem(title: title, list: selectedList)
         modelContext.insert(newItem)
     }
 
@@ -249,10 +287,10 @@ struct HomeView: View {
 
     private func flagColor(for priority: Priority) -> Color {
         switch priority {
-        case .high:   return .red
+        case .high: return .red
         case .medium: return .yellow
-        case .low:    return .blue
-        case .none:   return .gray
+        case .low: return .blue
+        case .none: return .gray
         }
     }
 }
