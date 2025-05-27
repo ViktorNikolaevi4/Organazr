@@ -172,17 +172,6 @@ struct TaskDetailSheet: View {
 
             // MARK: Кнопка для добавления вложения
             Menu {
-                Button(action: {
-                    showPhotoPicker = true
-                }) {
-                    Label("Выбрать фото", systemImage: "photo")
-                }
-
-                Button(action: {
-                    showImagePicker = true
-                }) {
-                    Label("Сделать фото", systemImage: "camera")
-                }
 
                 Button(action: {
                     showDocumentScanner = true
@@ -195,13 +184,26 @@ struct TaskDetailSheet: View {
                 }) {
                     Label("Сканировать текст", systemImage: "textformat")
                 }
+
+                Button(action: {
+                    showImagePicker = true
+                }) {
+                    Label("Сделать фото", systemImage: "camera")
+                }
+
+                Button(action: {
+                    showPhotoPicker = true
+                }) {
+                    Label("Выбрать фото", systemImage: "photo")
+                }
+
             } label: {
                 HStack {
                     Image(systemName: "paperclip")
-                        .foregroundColor(.blue)
+
                     Text("Добавить вложение")
-                        .foregroundColor(.blue)
                 }
+                .foregroundStyle(.specialBlue)
             }
 
             Spacer()
@@ -242,3 +244,4 @@ struct TaskDetailSheet: View {
         }
     }
 }
+//.foregroundStyle(flagColor(for: task.priority))
