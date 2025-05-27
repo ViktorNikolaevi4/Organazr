@@ -156,6 +156,14 @@ struct HomeView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
+
+                if task.imageData != nil {
+                    HStack(spacing: 2) {
+                        Image(systemName: "paperclip")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
             }
 
             Spacer()
