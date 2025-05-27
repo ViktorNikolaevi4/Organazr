@@ -31,5 +31,3 @@ final class TaskItem: Identifiable {
         self.imageData   = imageData
     }
 }
-
-

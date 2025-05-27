@@ -4,17 +4,28 @@ enum MenuSection {
     case all, tomorrow, tasks, done, notDone, trash
 }
 
+import SwiftUI
+import SwiftData
+
 struct MenuModalView: View {
-    @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss)      private var dismiss
     let onSelect: (MenuSection) -> Void
+
+    // Открыть sheet для создания списка
+    @State private var showAddNew = false
+    @State private var newListName = ""
+
+    // Загружаем из базы все списки, отсортированные по названию
+    @Query(sort: [SortDescriptor(\TaskList.title, order: .forward)])
+    private var userLists: [TaskList]
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
-            Color(.systemGray6)
-                .ignoresSafeArea()
+            Color(.systemGray6).ignoresSafeArea()
 
             VStack(spacing: 0) {
-                // — Кнопка настроек в шапке
+                // шапка
                 HStack {
                     Spacer()
                     Button { /* … */ } label: {
@@ -25,20 +36,38 @@ struct MenuModalView: View {
                     }
                 }
 
-                // — Меню
                 List {
-                    Button { select(.all) }          label: { Label("Все",                systemImage: "tray.fill") }
-                    Button { select(.tomorrow) }     label: { Label("Завтра",             systemImage: "sunrise.fill") }
-                    Button { select(.tasks) }        label: { Label("Задачи",             systemImage: "list.bullet") }
-                    Button { select(.done) }         label: { Label("Выполнено",          systemImage: "checkmark.circle.fill") }
-                    Button { select(.notDone) }      label: { Label("Не будет выполнено", systemImage: "xmark.circle.fill") }
-                    Button { select(.trash) }        label: { Label("Корзина",            systemImage: "trash.fill") }
+                    // 1) Секции ваших списков из SwiftData
+                    if !userLists.isEmpty {
+                        Section("Мои списки") {
+                            ForEach(userLists) { list in
+                                Button {
+                                    // здесь можно выбрать этот список
+                                    // например, вызвать onSelect или другой callback
+                                } label: {
+                                    Label(list.title, systemImage: "list.bullet")
+                                }
+                            }
+                        }
+                    }
+
+                    // 2) Стандартные пункты
+                    Section("Системные") {
+                        Button { select(.all) }      label: { Label("Все",                 systemImage: "tray.fill") }
+                        Button { select(.tomorrow) } label: { Label("Завтра",              systemImage: "sunrise.fill") }
+                        Button { select(.tasks) }    label: { Label("Задачи",              systemImage: "list.bullet") }
+                        Button { select(.done) }     label: { Label("Выполнено",           systemImage: "checkmark.circle.fill") }
+                        Button { select(.notDone) }  label: { Label("Не будет выполнено",  systemImage: "xmark.circle.fill") }
+                        Button { select(.trash) }    label: { Label("Корзина",             systemImage: "trash.fill") }
+                    }
                 }
                 .listStyle(.insetGrouped)
             }
 
-            // — Плавающая кнопка «Добавить» —
-            Button { /* … */ } label: {
+            // плавающая кнопка «Добавить»
+            Button {
+                showAddNew = true
+            } label: {
                 Label("Добавить", systemImage: "plus")
                     .font(.headline)
                     .padding(.vertical, 8)
@@ -51,10 +80,40 @@ struct MenuModalView: View {
             .padding(.trailing, 16)
             .padding(.bottom, 16)
         }
+        // sheet для создания нового списка
+        .sheet(isPresented: $showAddNew) {
+            NavigationStack {
+                Form {
+                    Section {
+                        TextField("Имя списка", text: $newListName)
+                    }
+                }
+                .navigationTitle("Создать список")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .cancellationAction) {
+                        Button("Отмена") {
+                            showAddNew = false
+                            newListName = ""
+                        }
+                    }
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Сохранить") {
+                            let trimmed = newListName.trimmingCharacters(in: .whitespaces)
+                            guard !trimmed.isEmpty else { return }
+                            // Вставляем новый объект TaskList в контекст SwiftData
+                            modelContext.insert(TaskList(title: trimmed))
+                            showAddNew = false
+                            newListName = ""
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private func select(_ section: MenuSection) {
-        dismiss()               // сначала закрываем меню
-        onSelect(section)       // передаём выбранную секцию в HomeView
+        dismiss()
+        onSelect(section)
     }
 }

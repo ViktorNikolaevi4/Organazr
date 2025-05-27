@@ -12,6 +12,7 @@
 		B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287822DE4925500F17B3B /* DocumentScanner.swift */; };
 		B61287852DE4927700F17B3B /* TextScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287842DE4927700F17B3B /* TextScanner.swift */; };
 		B61287A42DE5CB5900F17B3B /* MenuModalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287A32DE5CB5900F17B3B /* MenuModalView.swift */; };
+		B61287A62DE5D7B700F17B3B /* TaskList.swift in Sources */ = {isa = PBXBuildFile; fileRef = B61287A52DE5D7B700F17B3B /* TaskList.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -22,6 +23,7 @@
 		B61287842DE4927700F17B3B /* TextScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TextScanner.swift; sourceTree = "<group>"; };
 		B61287862DE4961600F17B3B /* Organazr-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "Organazr-Info.plist"; sourceTree = "<group>"; };
 		B61287A32DE5CB5900F17B3B /* MenuModalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuModalView.swift; sourceTree = "<group>"; };
+		B61287A52DE5D7B700F17B3B /* TaskList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskList.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -94,6 +96,7 @@
 			isa = PBXGroup;
 			children = (
 				B612870F2DDF243200F17B3B /* TaskItem.swift */,
+				B61287A52DE5D7B700F17B3B /* TaskList.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -193,6 +196,7 @@
 				B61287A42DE5CB5900F17B3B /* MenuModalView.swift in Sources */,
 				B61287812DE4923100F17B3B /* ImagePicker.swift in Sources */,
 				B61287832DE4925500F17B3B /* DocumentScanner.swift in Sources */,
+				B61287A62DE5D7B700F17B3B /* TaskList.swift in Sources */,
 				B61287852DE4927700F17B3B /* TextScanner.swift in Sources */,
 				B61287102DDF243200F17B3B /* TaskItem.swift in Sources */,
 			);

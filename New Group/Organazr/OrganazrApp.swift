@@ -8,6 +8,5 @@ struct OrganazrApp: App {
         WindowGroup {
             ContentView()
         }
-        .modelContainer(for: [TaskItem.self])
-    }
+        .modelContainer(for: [TaskItem.self, TaskList.self])    }
 }
