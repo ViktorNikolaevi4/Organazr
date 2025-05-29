@@ -26,16 +26,6 @@
 		B61287A52DE5D7B700F17B3B /* TaskList.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaskList.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		B612877E2DE45E5D00F17B3B /* Exceptions for "АктивитиХуиити" folder in "Organazr" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				ActivityView.swift,
-			);
-			target = B61286F12DDF085D00F17B3B /* Organazr */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		B61286F42DDF085D00F17B3B /* Organazr */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
@@ -44,9 +34,6 @@
 		};
 		B612877B2DE45E3200F17B3B /* АктивитиХуиити */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				B612877E2DE45E5D00F17B3B /* Exceptions for "АктивитиХуиити" folder in "Organazr" target */,
-			);
 			path = "АктивитиХуиити";
 			sourceTree = "<group>";
 		};

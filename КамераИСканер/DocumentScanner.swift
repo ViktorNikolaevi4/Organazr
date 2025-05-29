@@ -10,6 +10,7 @@ struct DocumentScanner: UIViewControllerRepresentable {
         return scanner
     }
 
+
     func updateUIViewController(_ uiViewController: VNDocumentCameraViewController, context: Context) {}
 
     func makeCoordinator() -> Coordinator {
