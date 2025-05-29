@@ -49,13 +49,20 @@ struct MoreOptionsView: View {
                     ) {
                         showActivityView = true
                     }
+                    // Динамическая кнопка: "Не буду делать" или "Вернуть" в зависимости от isNotDone
                     OptionButton(
-                        systemName: "xmark.circle.fill",
-                        title: "Не буду делать",
-                        iconColor: .blue
+                        systemName: task.isNotDone ? "arrow.uturn.left.circle.fill" : "xmark.circle.fill",
+                        title: task.isNotDone ? "Вернуть" : "Не буду делать",
+                        iconColor: task.isNotDone ? .green : .blue
                     ) {
-                        task.isNotDone = true // Помечаем задачу как "не будет сделана"
-                        dismiss() // Закрываем меню
+                        if task.isNotDone {
+                            // Возвращаем задачу в список задач, сбрасывая isNotDone
+                            task.isNotDone = false
+                        } else {
+                            // Помечаем задачу как "не будет сделано"
+                            task.isNotDone = true
+                        }
+                        dismiss()
                     }
                     OptionButton(
                         systemName: "trash.fill",
@@ -99,14 +106,15 @@ struct MoreOptionsView: View {
             }
         }
     }
+
     private func shareText() -> String {
-            var text = "Задача: \(task.title)"
-            if !task.details.isEmpty {
-                text += "\nОписание: \(task.details)"
-            }
-            return text
+        var text = "Задача: \(task.title)"
+        if !task.details.isEmpty {
+            text += "\nОписание: \(task.details)"
         }
+        return text
     }
+}
 
 private struct OptionButton: View {
     let systemName: String
@@ -169,4 +177,3 @@ struct ActivityView: UIViewControllerRepresentable {
         // Ничего не нужно обновлять
     }
 }
-
