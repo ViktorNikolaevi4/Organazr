@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Мы используем микрофон для записи голосовых задач</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Мы используем распознавание речи для преобразования голоса в текст.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Мы используем фотоальбом для выбора изображений для ваших задач.</string>
 	<key>NSCameraUsageDescription</key>

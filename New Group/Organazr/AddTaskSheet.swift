@@ -1,4 +1,6 @@
 import SwiftUI
+import Speech
+import AVFoundation
 
 struct AddTaskSheet: View {
     // Колбэк при успешном добавлении с приоритетом
@@ -7,6 +9,12 @@ struct AddTaskSheet: View {
     @State private var selectedPriority: Priority = .none
     @FocusState private var isFocused: Bool
     @State private var showingPriorityPopover = false
+    // Состояния для записи голоса
+    @State private var isRecording = false
+    @State private var speechRecognizer = SFSpeechRecognizer(locale: Locale(identifier: "ru-RU"))
+    @State private var recognitionRequest: SFSpeechAudioBufferRecognitionRequest?
+    @State private var recognitionTask: SFSpeechRecognitionTask?
+    @State private var audioEngine = AVAudioEngine()
 
     var body: some View {
         ScrollView {
@@ -21,7 +29,7 @@ struct AddTaskSheet: View {
                 HStack(spacing: 24) {
                     Image(systemName: "calendar")
                     Image(systemName: "clock")
-                    // Иконка флажка для выбора приоритета (в ряду с другими иконками)
+                    // Иконка флажка для выбора приоритета
                     Button {
                         showingPriorityPopover = true
                     } label: {
@@ -61,6 +69,17 @@ struct AddTaskSheet: View {
                         .presentationCompactAdaptation(.popover)
                     }
                     Image(systemName: "tag")
+                    // Кнопка для записи голоса
+                    Button {
+                        if isRecording {
+                            stopRecording()
+                        } else {
+                            startRecording()
+                        }
+                    } label: {
+                        Image(systemName: isRecording ? "mic.fill" : "mic")
+                            .foregroundStyle(isRecording ? .red : .primary)
+                    }
                     Spacer()
                     Button("Добавить") {
                         onAdd(title, selectedPriority)
@@ -77,8 +96,101 @@ struct AddTaskSheet: View {
         .onAppear {
             // При появлении сразу открываем клавиатуру
             isFocused = true
+            // Запрашиваем разрешения
+            requestSpeechAuthorization()
+            requestMicrophoneAuthorization()
         }
     }
+
+    // MARK: - Speech Recognition Methods
+
+    private func requestSpeechAuthorization() {
+        SFSpeechRecognizer.requestAuthorization { authStatus in
+            DispatchQueue.main.async {
+                if authStatus != .authorized {
+                    print("Speech recognition not authorized")
+                }
+            }
+        }
+    }
+
+    private func requestMicrophoneAuthorization() {
+        AVAudioSession.sharedInstance().requestRecordPermission { granted in
+            DispatchQueue.main.async {
+                if !granted {
+                    print("Microphone access not granted")
+                }
+            }
+        }
+    }
+
+    private func startRecording() {
+        // Проверяем доступность распознавания речи
+        guard let speechRecognizer = speechRecognizer, speechRecognizer.isAvailable else {
+            print("Speech recognition not available")
+            return
+        }
+
+        // Создаём запрос на распознавание
+        recognitionRequest = SFSpeechAudioBufferRecognitionRequest()
+        guard let recognitionRequest = recognitionRequest else { return }
+
+        recognitionRequest.shouldReportPartialResults = true
+
+        // Настраиваем аудиосессию
+        let audioSession = AVAudioSession.sharedInstance()
+        do {
+            try audioSession.setCategory(.record, mode: .measurement, options: .duckOthers)
+            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
+        } catch {
+            print("Failed to set up audio session: \(error)")
+            return
+        }
+
+        // Настраиваем входной узел
+        let inputNode = audioEngine.inputNode
+        let recordingFormat = inputNode.outputFormat(forBus: 0)
+        inputNode.installTap(onBus: 0, bufferSize: 1024, format: recordingFormat) { buffer, _ in
+            recognitionRequest.append(buffer)
+        }
+
+        // Начинаем запись
+        audioEngine.prepare()
+        do {
+            try audioEngine.start()
+        } catch {
+            print("Failed to start audio engine: \(error)")
+            return
+        }
+
+        // Начинаем распознавание
+        recognitionTask = speechRecognizer.recognitionTask(with: recognitionRequest) { result, error in
+            if let result = result {
+                DispatchQueue.main.async {
+                    self.title = result.bestTranscription.formattedString
+                }
+            }
+
+            if let error = error {
+                print("Recognition error: \(error)")
+                self.stopRecording()
+            }
+        }
+
+        isRecording = true
+    }
+
+    private func stopRecording() {
+        audioEngine.stop()
+        audioEngine.inputNode.removeTap(onBus: 0)
+        recognitionRequest?.endAudio()
+        recognitionTask?.cancel()
+        recognitionTask = nil
+        recognitionRequest = nil
+        isRecording = false
+    }
+
+    // MARK: - Helper Methods
 
     private func flagColor(for priority: Priority) -> Color {
         switch priority {
