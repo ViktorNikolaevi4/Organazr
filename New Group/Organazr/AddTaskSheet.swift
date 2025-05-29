@@ -115,12 +115,9 @@ struct AddTaskSheet: View {
     }
 
     private func requestMicrophoneAuthorization() {
-        AVAudioSession.sharedInstance().requestRecordPermission { granted in
-            DispatchQueue.main.async {
-                if !granted {
-                    print("Microphone access not granted")
-                }
-            }
+        Task {
+            let granted = await AVAudioApplication.requestRecordPermission()
+            if !granted { print("Доступ к микрофону не получен") }
         }
     }
 
