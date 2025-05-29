@@ -17,6 +17,10 @@ struct HomeView: View {
     @State private var showMenu = false
     @State private var selectedSection: MenuSection = .tasks
 
+    // Для подтверждения удаления задачи
+    @State private var showDeleteConfirmation = false
+    @State private var taskToDelete: TaskItem?
+
     // Фильтрация задач: только незавершенные и только из текущего списка или без списка
     private var tasks: [TaskItem] {
         allTasks.filter { item in
@@ -82,7 +86,10 @@ struct HomeView: View {
                                         row(for: task)
                                     }
                                     .onDelete { idxs in
-                                        delete(at: idxs, in: pinned)
+                                        if let index = idxs.first {
+                                            taskToDelete = pinned[index]
+                                            showDeleteConfirmation = true
+                                        }
                                     }
                                 }
                             } header: {
@@ -117,7 +124,10 @@ struct HomeView: View {
                                     row(for: task)
                                 }
                                 .onDelete { idxs in
-                                    delete(at: idxs, in: normal)
+                                    if let index = idxs.first {
+                                        taskToDelete = normal[index]
+                                        showDeleteConfirmation = true
+                                    }
                                 }
                             }
                         }
@@ -165,8 +175,9 @@ struct HomeView: View {
                 }
             }
             .sheet(isPresented: $isAdding) {
-                AddTaskSheet { newTitle in
-                    addTask(title: newTitle)
+                AddTaskSheet { title, priority in
+                    let newItem = TaskItem(title: title, list: selectedList, priority: priority)
+                    modelContext.insert(newItem)
                     isAdding = false
                 }
                 .presentationDetents([.fraction(0.4)])
@@ -183,6 +194,24 @@ struct HomeView: View {
                         selectedList = list
                     }
                 }
+            }
+            // Диалог подтверждения удаления задачи
+            .confirmationDialog(
+                "Удалить задачу?",
+                isPresented: $showDeleteConfirmation,
+                titleVisibility: .visible
+            ) {
+                Button("Удалить", role: .destructive) {
+                    if let task = taskToDelete {
+                        modelContext.delete(task)
+                    }
+                    taskToDelete = nil
+                }
+                Button("Отмена", role: .cancel) {
+                    taskToDelete = nil
+                }
+            } message: {
+                Text("Задача будет удалена без возможности восстановления.")
             }
         }
     }
@@ -226,6 +255,15 @@ struct HomeView: View {
         }
         .contentShape(Rectangle())
         .onTapGesture { selectedTask = task }
+        .swipeActions(edge: .trailing) {
+            Button {
+                taskToDelete = task
+                showDeleteConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .tint(.red)
+        }
         .padding(.vertical, 8)
     }
 
@@ -250,15 +288,15 @@ struct HomeView: View {
     private func undoButton() -> some View {
         Button { undoComplete() } label: {
             Image(systemName: "arrow.uturn.backward.circle.fill")
-                .font(.system(size: 48))
+                .font(.system(size: 64))
                 .foregroundStyle(.white, .orange)
                 .shadow(radius: 4, y: 2)
         }
         .buttonStyle(.plain)
     }
 
-    private func addTask(title: String) {
-        let newItem = TaskItem(title: title, list: selectedList)
+    private func addTask(title: String, priority: Priority) {
+        let newItem = TaskItem(title: title, list: selectedList, priority: priority)
         modelContext.insert(newItem)
     }
 
