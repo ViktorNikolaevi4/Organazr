@@ -54,7 +54,8 @@ struct MoreOptionsView: View {
                         title: "Не буду делать",
                         iconColor: .blue
                     ) {
-                        // TODO: action
+                        task.isNotDone = true // Помечаем задачу как "не будет сделана"
+                        dismiss() // Закрываем меню
                     }
                     OptionButton(
                         systemName: "trash.fill",

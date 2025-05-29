@@ -21,14 +21,14 @@ struct HomeView: View {
     @State private var showDeleteConfirmation = false
     @State private var taskToDelete: TaskItem?
 
-    // Фильтрация задач: только незавершенные и только из текущего списка или без списка
+    // Фильтрация задач: только незавершенные, не помеченные как "не будет сделано", и из текущего списка или без списка
     private var tasks: [TaskItem] {
         allTasks.filter { item in
-            let notDone = !item.isCompleted
+            let notDone = !item.isCompleted && !item.isNotDone // Исключаем завершённые и "не будет сделано"
             if let list = selectedList {
                 return notDone && item.list?.id == list.id
             } else {
-                return notDone && item.list == nil // Показываем только задачи без списка, если список не выбран
+                return notDone && item.list == nil
             }
         }
     }
@@ -60,7 +60,34 @@ struct HomeView: View {
             ZStack(alignment: .bottomLeading) {
                 Color(.systemGray6).ignoresSafeArea()
 
-                if tasks.isEmpty {
+                // Отображение для секции "Не будет выполнено"
+                if selectedSection == .notDone {
+                    let notDoneTasks = allTasks.filter { $0.isNotDone }
+                    if notDoneTasks.isEmpty {
+                        VStack {
+                            Spacer()
+                            Text("Нет забытых задач")
+                                .font(.title2)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                    } else {
+                        List {
+                            Section("Не будет выполнено") {
+                                ForEach(notDoneTasks) { task in
+                                    row(for: task)
+                                }
+                                .onDelete { idxs in
+                                    if let index = idxs.first {
+                                        taskToDelete = notDoneTasks[index]
+                                        showDeleteConfirmation = true
+                                    }
+                                }
+                            }
+                        }
+                        .listStyle(.insetGrouped)
+                    }
+                } else if tasks.isEmpty {
                     VStack {
                         Spacer()
                         VStack(spacing: 16) {
@@ -135,7 +162,10 @@ struct HomeView: View {
                     .listStyle(.insetGrouped)
                 }
 
-                plusButton()
+                // Условное отображение кнопки "Плюс" — скрываем в секции "Не будет выполнено"
+                if selectedSection != .notDone {
+                    plusButton()
+                }
 
                 if showUndo {
                     undoButton()

@@ -26,6 +26,7 @@ final class TaskItem: Identifiable {
     var isPinned: Bool = false
     var imageData: Data? = nil
     var list: TaskList?
+    var isNotDone: Bool = false
 
     init(
         title: String,
@@ -34,7 +35,8 @@ final class TaskItem: Identifiable {
         isCompleted: Bool = false,
         priority: Priority = .none,
         isPinned: Bool = false,
-        imageData: Data? = nil
+        imageData: Data? = nil,
+        isNotDone: Bool = false
     ) {
         self.title = title
         self.list = list
@@ -43,6 +45,7 @@ final class TaskItem: Identifiable {
         self.priority = priority
         self.isPinned = isPinned
         self.imageData = imageData
+        self.isNotDone = isNotDone
     }
 }
 // priority: Priority = .none,
