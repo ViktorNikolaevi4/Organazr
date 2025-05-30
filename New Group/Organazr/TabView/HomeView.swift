@@ -69,6 +69,7 @@ struct HomeView: View {
                             Text("Нет забытых задач")
                                 .font(.title2)
                                 .foregroundColor(.secondary)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
                             Spacer()
                         }
                     } else {
@@ -249,17 +250,28 @@ struct HomeView: View {
     @ViewBuilder
     private func row(for task: TaskItem) -> some View {
         HStack {
-            Button {
-                complete(task)
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                    .foregroundColor(task.isCompleted ? .green : .primary)
+            // Проверяем, находится ли задача в секции "Не будет выполнено"
+            if selectedSection == .notDone {
+                // Перечёркнутый квадратик, неактивный
+                Image(systemName: "square.slash")
+                    .foregroundColor(.gray)
+                    .padding(.trailing, 4)
+            } else {
+                // Обычный квадратик для других секций
+                Button {
+                    complete(task)
+                } label: {
+                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                        .foregroundColor(task.isCompleted ? .green : .primary)
+                }
+                .buttonStyle(.plain)
             }
-            .buttonStyle(.plain)
 
             VStack(alignment: .leading, spacing: 4) {
                 Text(task.title)
                     .font(.headline)
+                    // Серый цвет текста в "Не будет выполнено", иначе стандартный
+                    .foregroundColor(selectedSection == .notDone ? .gray : .primary)
                 if !task.details.isEmpty {
                     Text(task.details)
                         .font(.subheadline)
