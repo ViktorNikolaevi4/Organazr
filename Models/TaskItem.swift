@@ -27,6 +27,9 @@ final class TaskItem: Identifiable {
     var imageData: Data? = nil
     var list: TaskList?
     var isNotDone: Bool = false
+    var parentTask: TaskItem? = nil
+    @Relationship(deleteRule: .cascade, inverse: \TaskItem.parentTask)
+        var subtasks: [TaskItem] = []
 
     init(
         title: String,
@@ -36,7 +39,8 @@ final class TaskItem: Identifiable {
         priority: Priority = .none,
         isPinned: Bool = false,
         imageData: Data? = nil,
-        isNotDone: Bool = false
+        isNotDone: Bool = false,
+        parentTask: TaskItem? = nil
     ) {
         self.title = title
         self.list = list
@@ -46,6 +50,7 @@ final class TaskItem: Identifiable {
         self.isPinned = isPinned
         self.imageData = imageData
         self.isNotDone = isNotDone
+        self.parentTask = parentTask
     }
 }
 // priority: Priority = .none,
