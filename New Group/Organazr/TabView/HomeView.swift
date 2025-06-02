@@ -248,75 +248,51 @@ struct HomeView: View {
         }
     }
 
+
     @ViewBuilder
     private func row(for task: TaskItem) -> some View {
-        VStack(alignment: .leading) {
-            HStack {
-                // Проверяем, находится ли задача в секции "Не будет выполнено"
-                if selectedSection == .notDone {
-                    Image(systemName: "square.slash")
-                        .foregroundColor(.gray)
-                        .padding(.trailing, 4)
-                } else {
-                    Button {
-                        complete(task)
-                    } label: {
-                        Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                            .foregroundColor(task.isCompleted ? .green : .primary)
-                    }
-                    .buttonStyle(.plain)
+        // Отображение родительской задачи
+        HStack {
+            // Проверяем, находится ли задача в секции "Не будет выполнено"
+            if selectedSection == .notDone {
+                Image(systemName: "square.slash")
+                    .foregroundColor(.gray)
+                    .padding(.trailing, 4)
+            } else {
+                Button {
+                    complete(task)
+                } label: {
+                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                        .foregroundColor(task.isCompleted ? .green : .primary)
                 }
+                .buttonStyle(.plain)
+            }
 
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.headline)
-                        .foregroundColor(selectedSection == .notDone ? .gray : .primary)
-                    if !task.details.isEmpty {
-                        Text(task.details)
-                            .font(.subheadline)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-
-                    if task.imageData != nil {
-                        HStack(spacing: 2) {
-                            Image(systemName: "paperclip")
-                                .font(.caption)
-                        }
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.headline)
+                    .foregroundColor(selectedSection == .notDone ? .gray : .primary)
+                if !task.details.isEmpty {
+                    Text(task.details)
+                        .font(.subheadline)
                         .foregroundColor(.secondary)
-                    }
+                        .lineLimit(1)
                 }
 
-                Spacer()
-
-                if task.priority != .none {
-                    Image(systemName: "flag.fill")
-                        .foregroundColor(flagColor(for: task.priority))
+                if task.imageData != nil {
+                    HStack(spacing: 2) {
+                        Image(systemName: "paperclip")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
                 }
             }
 
-            // Отображаем подзадачи, если они есть
-            if !task.subtasks.isEmpty {
-                ForEach(task.subtasks) { subtask in
-                    HStack {
-                        Spacer().frame(width: 40) // Отступ для подзадачи
-                        Image(systemName: subtask.isCompleted ? "checkmark.square.fill" : "square")
-                            .foregroundColor(subtask.isCompleted ? .green : .primary)
-                            .onTapGesture {
-                                subtask.isCompleted.toggle()
-                                do {
-                                    try modelContext.save()
-                                } catch {
-                                    print("Ошибка сохранения: \(error)")
-                                }
-                            }
-                        Text(subtask.title)
-                            .font(.subheadline)
-                            .foregroundColor(selectedSection == .notDone ? .gray : .primary)
-                        Spacer()
-                    }
-                    .padding(.vertical, 4)
-                }
+            Spacer()
+
+            if task.priority != .none {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(flagColor(for: task.priority))
             }
         }
         .contentShape(Rectangle())
@@ -331,6 +307,45 @@ struct HomeView: View {
             .tint(.red)
         }
         .padding(.vertical, 8)
+
+        // Отображение подзадач
+        if !task.subtasks.isEmpty {
+            ForEach(task.subtasks) { subtask in
+                HStack {
+                    Spacer().frame(width: 40) // Отступ для подзадачи
+                    Button {
+                        complete(subtask)
+                    } label: {
+                        Image(systemName: subtask.isCompleted ? "checkmark.square.fill" : "square")
+                            .foregroundColor(subtask.isCompleted ? .green : .primary)
+                    }
+                    .buttonStyle(.plain)
+
+                    Text(subtask.title)
+                        .font(.subheadline)
+                        .foregroundColor(selectedSection == .notDone ? .gray : .primary)
+
+                    Spacer()
+
+                    if subtask.priority != .none {
+                        Image(systemName: "flag.fill")
+                            .foregroundColor(flagColor(for: subtask.priority))
+                    }
+                }
+                .contentShape(Rectangle())
+                .onTapGesture { selectedTask = subtask }
+                .swipeActions(edge: .trailing) {
+                    Button {
+                        taskToDelete = subtask
+                        showDeleteConfirmation = true
+                    } label: {
+                        Image(systemName: "trash")
+                    }
+                    .tint(.red)
+                }
+                .padding(.vertical, 4)
+            }
+        }
     }
 
     private func plusButton() -> some View {
