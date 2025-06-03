@@ -308,7 +308,7 @@ struct HomeView: View {
         }
         .padding(.vertical, 8)
 
-        // Отображение подзадач
+        // Отображение подзадач с описанием
         if !task.subtasks.isEmpty {
             ForEach(task.subtasks) { subtask in
                 HStack {
@@ -321,9 +321,18 @@ struct HomeView: View {
                     }
                     .buttonStyle(.plain)
 
-                    Text(subtask.title)
-                        .font(.subheadline)
-                        .foregroundColor(selectedSection == .notDone ? .gray : .primary)
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(subtask.title)
+                            .font(.subheadline)
+                            .foregroundColor(selectedSection == .notDone ? .gray : .primary)
+                        if !subtask.details.isEmpty {
+                            Text(subtask.details.prefix(30)) // Ограничиваем до 30 символов
+                                .font(.caption)
+                                .foregroundColor(.secondary)
+                                .lineLimit(1)
+                                .truncationMode(.tail) // Добавляем многоточие, если текст обрезается
+                        }
+                    }
 
                     Spacer()
 
