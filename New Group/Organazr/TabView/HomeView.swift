@@ -308,9 +308,10 @@ struct HomeView: View {
         }
         .padding(.vertical, 8)
 
-        // Отображение подзадач с описанием
-        if !task.subtasks.isEmpty {
-            ForEach(task.subtasks) { subtask in
+        // Отображение незавершённых подзадач
+        let incompleteSubtasks = task.subtasks.filter { !$0.isCompleted }
+        if !incompleteSubtasks.isEmpty {
+            ForEach(incompleteSubtasks) { subtask in
                 HStack {
                     Spacer().frame(width: 40) // Отступ для подзадачи
                     Button {
@@ -326,11 +327,11 @@ struct HomeView: View {
                             .font(.subheadline)
                             .foregroundColor(selectedSection == .notDone ? .gray : .primary)
                         if !subtask.details.isEmpty {
-                            Text(subtask.details.prefix(30)) // Ограничиваем до 30 символов
+                            Text(subtask.details.prefix(30))
                                 .font(.caption)
                                 .foregroundColor(.secondary)
                                 .lineLimit(1)
-                                .truncationMode(.tail) // Добавляем многоточие, если текст обрезается
+                                .truncationMode(.tail)
                         }
                     }
 
