@@ -333,6 +333,13 @@ struct HomeView: View {
                                 .lineLimit(1)
                                 .truncationMode(.tail)
                         }
+                        if subtask.imageData != nil {
+                            HStack(spacing: 2) {
+                                Image(systemName: "paperclip")
+                                    .font(.caption)
+                            }
+                            .foregroundColor(.secondary)
+                        }
                     }
 
                     Spacer()
