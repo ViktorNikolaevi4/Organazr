@@ -1,12 +1,96 @@
 import SwiftUI
 import SwiftData
 
+/// - level: уровень вложенности (0 — корневая, 1, 2, …).
+struct TaskRowView: View {
+    @Environment(\.modelContext) private var modelContext
+    var task: TaskItem
+    var level: Int
+    var onTap: (TaskItem) -> Void
+
+    /// Ширина «отступа» (в поинтах) для текущей вложенности.
+    private var indentWidth: CGFloat {
+        CGFloat(level) * 20  // 20 pt на каждый уровень вложенности
+    }
+
+    var body: some View {
+        HStack(spacing: 12) {
+            // Отступ слева, имитирующий вложенность
+            Spacer()
+                .frame(width: indentWidth)
+
+            // Чекбокс (кнопка «галочка»)
+            Button {
+                withAnimation {
+                    task.isCompleted.toggle()
+                    // Если вы хотите показывать Undo всего лишь при корневых задачах или при любых,
+                    // перенесите логику showUndo / recentlyCompleted сюда.
+                }
+            } label: {
+                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                    .foregroundColor(task.isCompleted ? .green : .primary)
+            }
+            .buttonStyle(.plain)
+
+            // Текстовый блок: название + детали (если есть)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(task.title)
+                    .font(.body)
+                    .foregroundColor(task.isCompleted ? .gray : .primary)
+
+                if !task.details.isEmpty {
+                    Text(task.details)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+            }
+
+            Spacer()
+
+            // Флажок приоритета (если приоритет != .none)
+            if task.priority != .none {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(flagColor(for: task.priority))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onTap(task)
+        }
+        // Свайп справа: «Удалить»
+        .swipeActions(edge: .trailing) {
+            Button(role: .destructive) {
+                // 1) Если хотите показать диалог «Подтверждение удаления» —
+                //    заполните taskToDelete = task и showDeleteConfirmation = true.
+                // 2) Либо сразу удалять:
+                modelContext.delete(task)
+            } label: {
+                Label("Удалить", systemImage: "trash")
+            }
+        }
+        .padding(.vertical, 8)
+    }
+
+    private func flagColor(for priority: Priority) -> Color {
+        switch priority {
+        case .high:   return .red
+        case .medium: return .yellow
+        case .low:    return .blue
+        case .none:   return .gray
+        }
+    }
+}
+
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
 
+    // Запрашиваем все TaskItem, отсортированные по title
     @Query(sort: [SortDescriptor<TaskItem>(\.title, order: .forward)])
     private var allTasks: [TaskItem]
 
+    // MARK: — Состояние экранов и кнопок
     @State private var selectedList: TaskList? = nil
     @State private var isAdding = false
     @State private var recentlyCompleted: TaskItem?
@@ -16,11 +100,12 @@ struct HomeView: View {
     @State private var sheetDetent: PresentationDetent = .medium
     @State private var showMenu = false
     @State private var selectedSection: MenuSection = .tasks
-    @State private var newTaskTitle = ""
     @State private var showDeleteConfirmation = false
     @State private var taskToDelete: TaskItem?
 
-    // Фильтрация задач: только незавершенные, не помеченные как "не будет сделано", из текущего списка или без списка
+    // MARK: — Фильтрация: остаются только корневые задачи (parentTask == nil)
+    //           которые ещё не выполнены и не помечены «не будет выполнено»,
+    //           и принадлежат либо выбранному списку, либо «без списка».
     private var tasks: [TaskItem] {
         allTasks.filter { item in
             let notDone = !item.isCompleted && !item.isNotDone
@@ -32,17 +117,48 @@ struct HomeView: View {
         }
     }
 
+    // MARK: — «Плоское» представление для закреплённых корневых задач
+    private var pinnedDisplayRows: [(TaskItem, Int)] {
+        var result: [(TaskItem, Int)] = []
+        for root in tasks.filter(\.isPinned) {
+            traverse(task: root, level: 0, into: &result)
+        }
+        return result
+    }
+
+    // MARK: — «Плоское» представление для незакреплённых корневых задач
+    private var normalDisplayRows: [(TaskItem, Int)] {
+        var result: [(TaskItem, Int)] = []
+        for root in tasks.filter({ !$0.isPinned }) {
+            traverse(task: root, level: 0, into: &result)
+        }
+        return result
+    }
+
+    // Рекурсивный метод, который «раскручивает» иерархию:
+    // Берёт любую задачу, добавляет (task, level) в result,
+    // затем для каждого ребёнка (child) вызывает себя же с level+1.
+    // При этом мы фильтруем, чтобы не брать «завершённые» и «не будет сделано».
+    private func traverse(task: TaskItem, level: Int, into array: inout [(TaskItem, Int)]) {
+        array.append((task, level))
+        let children = task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
+        for child in children {
+            traverse(task: child, level: level + 1, into: &array)
+        }
+    }
+
+    // MARK: — Заголовок навигации
     private var navigationTitle: String {
         if let list = selectedList {
             return list.title
         } else {
             switch selectedSection {
-            case .all: return "Все"
-            case .tomorrow: return "Завтра"
-            case .tasks: return "Задачи"
-            case .done: return "Выполнено"
-            case .notDone: return "Не будет выполнено"
-            case .trash: return "Корзина"
+            case .all:       return "Все"
+            case .tomorrow:  return "Завтра"
+            case .tasks:     return "Задачи"
+            case .done:      return "Выполнено"
+            case .notDone:   return "Не будет выполнено"
+            case .trash:     return "Корзина"
             }
         }
     }
@@ -50,8 +166,12 @@ struct HomeView: View {
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomLeading) {
-                Color(.systemGray6).ignoresSafeArea()
+                Color(.systemGray6)
+                    .ignoresSafeArea()
 
+                //==========================================
+                // 1) Секция «Не будет выполнено»
+                //==========================================
                 if selectedSection == .notDone {
                     let notDoneTasks = allTasks.filter { $0.isNotDone }
                     if notDoneTasks.isEmpty {
@@ -67,7 +187,9 @@ struct HomeView: View {
                         List {
                             Section("Не будет выполнено") {
                                 ForEach(notDoneTasks) { task in
-                                    row(for: task)
+                                    TaskRowView(task: task, level: 0) { tapped in
+                                        selectedTask = tapped
+                                    }
                                 }
                                 .onDelete { idxs in
                                     if let index = idxs.first {
@@ -79,7 +201,11 @@ struct HomeView: View {
                         }
                         .listStyle(.insetGrouped)
                     }
-                } else if tasks.isEmpty {
+                }
+                //==========================================
+                // 2) Если вообще нет корневых задач в выбранной секции/списке
+                //==========================================
+                else if tasks.isEmpty {
                     VStack {
                         Spacer()
                         VStack(spacing: 16) {
@@ -95,57 +221,61 @@ struct HomeView: View {
                         .multilineTextAlignment(.center)
                         Spacer()
                     }
-                } else {
+                }
+                //==========================================
+                // 3) Основной List («Закреплено» + «Задачи»)
+                //==========================================
+                else {
                     List {
-                        let pinned = tasks.filter(\.isPinned)
-                        if !pinned.isEmpty {
+                        //======================================
+                        // 3.1) Секция «Закреплено»
+                        //======================================
+                        if !pinnedDisplayRows.isEmpty {
                             Section {
-                                if isPinnedExpanded {
-                                    ForEach(pinned) { task in
-                                        row(for: task)
-                                    }
-                                    .onDelete { idxs in
-                                        if let index = idxs.first {
-                                            taskToDelete = pinned[index]
-                                            showDeleteConfirmation = true
-                                        }
-                                    }
-                                }
-                            } header: {
-                                Button(action: {
+                                // Заголовок-кнопка, разворачивает/сворачивает «Закреплено»
+                                Button {
                                     withAnimation {
                                         isPinnedExpanded.toggle()
                                     }
-                                }) {
+                                } label: {
                                     HStack {
                                         Image(systemName: "pin.fill")
                                             .foregroundColor(.orange)
                                         Text("Закреплено")
                                             .font(.headline)
                                         Spacer()
-                                        HStack(spacing: 4) {
-                                            Text("\(pinned.count)")
-                                                .foregroundColor(.secondary)
-                                            Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
-                                                .foregroundColor(.secondary)
-                                        }
+                                        Text("\(tasks.filter(\.isPinned).count)")
+                                            .foregroundColor(.secondary)
+                                        Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
+                                            .foregroundColor(.secondary)
                                     }
                                     .padding(.vertical, 4)
                                 }
                                 .buttonStyle(.plain)
+
+                                // Если «Закреплено» развернуто, выводим все строки:
+                                if isPinnedExpanded {
+                                    ForEach(pinnedDisplayRows, id: \.0.id) { pair in
+                                        let task = pair.0
+                                        let lvl  = pair.1
+                                        TaskRowView(task: task, level: lvl) { tapped in
+                                            selectedTask = tapped
+                                        }
+                                    }
+                                }
                             }
                         }
 
-                        let normal = tasks.filter { !$0.isPinned }
-                        if !normal.isEmpty {
+                        //======================================
+                        // 3.2) Секция «Задачи» (не закреплённые)
+                        //======================================
+                        if !normalDisplayRows.isEmpty {
                             Section("Задачи") {
-                                ForEach(normal) { task in
-                                    row(for: task)
-                                }
-                                .onDelete { idxs in
-                                    if let index = idxs.first {
-                                        taskToDelete = normal[index]
-                                        showDeleteConfirmation = true
+                                ForEach(normalDisplayRows, id: \.0.id) { pair in
+                                    let task = pair.0
+                                    let lvl  = pair.1
+                                    TaskRowView(task: task, level: lvl) { tapped in
+                                        selectedTask = tapped
                                     }
                                 }
                             }
@@ -154,10 +284,16 @@ struct HomeView: View {
                     .listStyle(.insetGrouped)
                 }
 
+                //==========================================
+                // Кнопка «+» (AddTask) – не отображается в секции «Не будет выполнено»
+                //==========================================
                 if selectedSection != .notDone {
                     plusButton()
                 }
 
+                //==========================================
+                // Undo-кнопка (если showUndo == true)
+                //==========================================
                 if showUndo {
                     undoButton()
                         .padding(.leading, 24)
@@ -169,6 +305,7 @@ struct HomeView: View {
             .navigationTitle(navigationTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Левая «гамбургер»-кнопка для меню
                 ToolbarItem(placement: .topBarLeading) {
                     Button {
                         showMenu = true
@@ -176,12 +313,16 @@ struct HomeView: View {
                         Image(systemName: "line.3.horizontal")
                     }
                 }
+                // Правая «многоточие»
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {} label: {
                         Image(systemName: "ellipsis")
                     }
                 }
             }
+            //==========================================
+            // Sheet: TaskDetailSheet при выборе задачи
+            //==========================================
             .sheet(item: $selectedTask) { task in
                 TaskDetailSheet(task: task) {
                     selectedTask = nil
@@ -195,6 +336,9 @@ struct HomeView: View {
                     }
                 }
             }
+            //==========================================
+            // Sheet: AddTaskSheet при нажатии «+»
+            //==========================================
             .sheet(isPresented: $isAdding) {
                 AddTaskSheet { title, priority in
                     let newItem = TaskItem(title: title, list: selectedList, priority: priority)
@@ -205,6 +349,9 @@ struct HomeView: View {
                 .presentationDragIndicator(.visible)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             }
+            //==========================================
+            // Sheet: MenuModalView при нажатии «гамбургера»
+            //==========================================
             .sheet(isPresented: $showMenu) {
                 MenuModalView { selection in
                     switch selection {
@@ -216,6 +363,9 @@ struct HomeView: View {
                     }
                 }
             }
+            //==========================================
+            // ConfirmationDialog: подтверждение удаления
+            //==========================================
             .confirmationDialog("Удалить задачу?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) {
                     if let task = taskToDelete {
@@ -232,222 +382,22 @@ struct HomeView: View {
         }
     }
 
-    // MARK: — Строка основной задачи (row). Перенесли все print-переносы «вне» @ViewBuilder
-    private func row(for task: TaskItem) -> some View {
-        return rowContent(for: task)
-    }
-
+    //==============================================================================
+    // MARK: — Кнопка «+» для добавления новой задачи
+    //==============================================================================
     @ViewBuilder
-    private func rowContent(for task: TaskItem) -> some View {
-        HStack {
-            if selectedSection == .notDone {
-                Image(systemName: "square.slash")
-                    .foregroundColor(.gray)
-                    .padding(.trailing, 4)
-            } else {
-                Button {
-                    complete(task)
-                } label: {
-                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                        .foregroundColor(task.isCompleted ? .green : .primary)
-                }
-                .buttonStyle(.plain)
-            }
-
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.headline)
-                    .foregroundColor(selectedSection == .notDone ? .gray : .primary)
-                if !task.details.isEmpty {
-                    Text(task.details)
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                }
-                if task.imageData != nil {
-                    HStack(spacing: 2) {
-                        Image(systemName: "paperclip")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if task.priority != .none {
-                Image(systemName: "flag.fill")
-                    .foregroundColor(flagColor(for: task.priority))
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { selectedTask = task }
-        .swipeActions(edge: .trailing) {
-            Button {
-                taskToDelete = task
-                showDeleteConfirmation = true
-            } label: {
-                Image(systemName: "trash")
-            }
-            .tint(.red)
-        }
-        .padding(.vertical, 8)
-        .id(task.refreshID)
-
-        // Вместо print тут просто показываем подзадачи, без отладки
-        let incompleteSubtasks = task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
-        if !incompleteSubtasks.isEmpty {
-            ForEach(incompleteSubtasks) { subtask in
-                HStack {
-                    Spacer().frame(width: 40)
-                    Button {
-                        complete(subtask)
-                    } label: {
-                        Image(systemName: subtask.isCompleted ? "checkmark.square.fill" : "square")
-                            .foregroundColor(subtask.isCompleted ? .green : .primary)
-                    }
-                    .buttonStyle(.plain)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text(subtask.title)
-                            .font(.subheadline)
-                            .foregroundColor(selectedSection == .notDone ? .gray : .primary)
-                        if !subtask.details.isEmpty {
-                            Text(subtask.details.prefix(30))
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.tail)
-                        }
-                        if subtask.imageData != nil {
-                            HStack(spacing: 2) {
-                                Image(systemName: "paperclip")
-                                    .font(.caption)
-                            }
-                            .foregroundColor(.secondary)
-                        }
-                    }
-
-                    Spacer()
-
-                    if subtask.priority != .none {
-                        Image(systemName: "flag.fill")
-                            .foregroundColor(flagColor(for: subtask.priority))
-                    }
-                }
-                .contentShape(Rectangle())
-                .onTapGesture { selectedTask = subtask }
-                .swipeActions(edge: .trailing) {
-                    Button {
-                        taskToDelete = subtask
-                        showDeleteConfirmation = true
-                    } label: {
-                        Image(systemName: "trash")
-                    }
-                    .tint(.red)
-                }
-                .padding(.vertical, 4)
-                .id(subtask.refreshID)
-
-                let nestedSubtasks = subtask.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
-                if !nestedSubtasks.isEmpty {
-                    ForEach(nestedSubtasks) { nested in
-                        subtaskRow(for: nested, level: 2)
-                    }
-                }
-            }
-        }
-    }
-
-    // ---------------------------------------------------------
-    // ЕДИНСТВЕННАЯ (и «тайп-эрейзенная») реализация subtaskRow
-    // ---------------------------------------------------------
-    private func subtaskRow(for subtask: TaskItem, level: Int) -> AnyView {
-        // 1) Базовая строка для текущей подзадачи
-        let base = HStack {
-            Spacer().frame(width: CGFloat(40 * level))
-            Button {
-                complete(subtask)
-            } label: {
-                Image(systemName: subtask.isCompleted ? "checkmark.square.fill" : "square")
-                    .foregroundColor(subtask.isCompleted ? .green : .primary)
-            }
-            .buttonStyle(.plain)
-
-            VStack(alignment: .leading, spacing: 2) {
-                Text(subtask.title)
-                    .font(.subheadline)
-                    .foregroundColor(selectedSection == .notDone ? .gray : .primary)
-
-                if !subtask.details.isEmpty {
-                    Text(subtask.details.prefix(30))
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
-                }
-
-                if subtask.imageData != nil {
-                    HStack(spacing: 2) {
-                        Image(systemName: "paperclip")
-                            .font(.caption)
-                    }
-                    .foregroundColor(.secondary)
-                }
-            }
-
-            Spacer()
-
-            if subtask.priority != .none {
-                Image(systemName: "flag.fill")
-                    .foregroundColor(flagColor(for: subtask.priority))
-            }
-        }
-        .contentShape(Rectangle())
-        .onTapGesture { selectedTask = subtask }
-        .swipeActions(edge: .trailing) {
-            Button {
-                taskToDelete = subtask
-                showDeleteConfirmation = true
-            } label: {
-                Image(systemName: "trash")
-            }
-            .tint(.red)
-        }
-        .padding(.vertical, 4)
-
-        // 2) Ищем вложенные «дети»
-        let nested = subtask.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
-
-        // 3) Если детей нет (или достигли глубины > 4), возвращаем просто базовую строку
-        guard !nested.isEmpty && level < 5 else {
-            return AnyView(base)
-        }
-
-        // 4) Собираем базовую строку + вложенные рекурсивные View
-        let combined = VStack(alignment: .leading, spacing: 0) {
-            base
-            ForEach(nested) { child in
-                subtaskRow(for: child, level: level + 1) // рекурсия
-            }
-        }
-
-        return AnyView(combined)
-    }
-
-    // ====================================
-    // Остальной код: plusButton, undoButton, работа с флагами и т.д.
-    // ====================================
     private func plusButton() -> some View {
         VStack {
             Spacer()
             HStack {
                 Spacer()
-                Button { isAdding = true } label: {
+                Button {
+                    isAdding = true
+                } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 64))
                         .symbolRenderingMode(.palette)
-                        .foregroundStyle(.white, .specialBlue)
+                        .foregroundStyle(.white, .blue) // если у вас есть собственный Color, замените
                         .shadow(radius: 4, y: 2)
                 }
                 .padding(.trailing, 24)
@@ -456,8 +406,14 @@ struct HomeView: View {
         }
     }
 
+    //==============================================================================
+    // MARK: — Кнопка «Undo» (отмена пометки «выполнено»)
+    //==============================================================================
+    @ViewBuilder
     private func undoButton() -> some View {
-        Button { undoComplete() } label: {
+        Button {
+            undoComplete()
+        } label: {
             Image(systemName: "arrow.uturn.backward.circle.fill")
                 .font(.system(size: 64))
                 .foregroundStyle(.white, .orange)
@@ -466,41 +422,33 @@ struct HomeView: View {
         .buttonStyle(.plain)
     }
 
-    private func addTask(title: String, priority: Priority) {
-        let newItem = TaskItem(title: title, list: selectedList, priority: priority)
-        modelContext.insert(newItem)
-    }
-
-    private func delete(at offsets: IndexSet, in bucket: [TaskItem]) {
-        for idx in offsets {
-            modelContext.delete(bucket[idx])
-        }
-    }
-
+    //==============================================================================
+    // MARK: — Пометить задачу как выполненную и показать Undo-кнопку
+    //==============================================================================
     private func complete(_ task: TaskItem) {
         task.isCompleted = true
         recentlyCompleted = task
-        withAnimation { showUndo = true }
+        withAnimation {
+            showUndo = true
+        }
+        // Через 3 сек вернем назад кнопку Undo, если пользователь не нажал
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-            withAnimation { showUndo = false }
+            withAnimation {
+                showUndo = false
+            }
             recentlyCompleted = nil
         }
     }
 
+    //==============================================================================
+    // MARK: — Отмена последнего «выполнено»
+    //==============================================================================
     private func undoComplete() {
         guard let t = recentlyCompleted else { return }
         t.isCompleted = false
-        withAnimation { showUndo = false }
+        withAnimation {
+            showUndo = false
+        }
         recentlyCompleted = nil
     }
-
-    private func flagColor(for priority: Priority) -> Color {
-        switch priority {
-        case .high: return .red
-        case .medium: return .yellow
-        case .low: return .blue
-        case .none: return .gray
-        }
-    }
 }
-
