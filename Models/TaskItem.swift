@@ -29,7 +29,10 @@ final class TaskItem: Identifiable {
     var isNotDone: Bool = false
     var parentTask: TaskItem? = nil
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.parentTask)
-        var subtasks: [TaskItem] = []
+    var subtasks: [TaskItem] = []
+
+    // Добавим свойство для триггера обновления
+    var refreshID: UUID = UUID()
 
     init(
         title: String,

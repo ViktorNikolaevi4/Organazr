@@ -16,42 +16,33 @@ struct HomeView: View {
     @State private var sheetDetent: PresentationDetent = .medium
     @State private var showMenu = false
     @State private var selectedSection: MenuSection = .tasks
-
-    // Для подтверждения удаления задачи
+    @State private var newTaskTitle = ""
     @State private var showDeleteConfirmation = false
     @State private var taskToDelete: TaskItem?
 
-    // Фильтрация задач: только незавершенные, не помеченные как "не будет сделано", и из текущего списка или без списка
+    // Фильтрация задач: только незавершенные, не помеченные как "не будет сделано", из текущего списка или без списка
     private var tasks: [TaskItem] {
         allTasks.filter { item in
             let notDone = !item.isCompleted && !item.isNotDone
-            let isNotSubtask = item.parentTask == nil // Исключаем подзадачи
             if let list = selectedList {
-                return notDone && item.list?.id == list.id && isNotSubtask
+                return notDone && item.list?.id == list.id && item.parentTask == nil
             } else {
-                return notDone && item.list == nil && isNotSubtask
+                return notDone && item.list == nil && item.parentTask == nil
             }
         }
     }
 
-    // Динамический заголовок в зависимости от выбранного списка или секции
     private var navigationTitle: String {
         if let list = selectedList {
             return list.title
         } else {
             switch selectedSection {
-            case .all:
-                return "Все"
-            case .tomorrow:
-                return "Завтра"
-            case .tasks:
-                return "Задачи"
-            case .done:
-                return "Выполнено"
-            case .notDone:
-                return "Не будет выполнено"
-            case .trash:
-                return "Корзина"
+            case .all: return "Все"
+            case .tomorrow: return "Завтра"
+            case .tasks: return "Задачи"
+            case .done: return "Выполнено"
+            case .notDone: return "Не будет выполнено"
+            case .trash: return "Корзина"
             }
         }
     }
@@ -61,7 +52,6 @@ struct HomeView: View {
             ZStack(alignment: .bottomLeading) {
                 Color(.systemGray6).ignoresSafeArea()
 
-                // Отображение для секции "Не будет выполнено"
                 if selectedSection == .notDone {
                     let notDoneTasks = allTasks.filter { $0.isNotDone }
                     if notDoneTasks.isEmpty {
@@ -164,7 +154,6 @@ struct HomeView: View {
                     .listStyle(.insetGrouped)
                 }
 
-                // Условное отображение кнопки "Плюс" — скрываем в секции "Не будет выполнено"
                 if selectedSection != .notDone {
                     plusButton()
                 }
@@ -227,12 +216,7 @@ struct HomeView: View {
                     }
                 }
             }
-            // Диалог подтверждения удаления задачи
-            .confirmationDialog(
-                "Удалить задачу?",
-                isPresented: $showDeleteConfirmation,
-                titleVisibility: .visible
-            ) {
+            .confirmationDialog("Удалить задачу?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) {
                     if let task = taskToDelete {
                         modelContext.delete(task)
@@ -248,12 +232,14 @@ struct HomeView: View {
         }
     }
 
+    // MARK: — Строка основной задачи (row). Перенесли все print-переносы «вне» @ViewBuilder
+    private func row(for task: TaskItem) -> some View {
+        return rowContent(for: task)
+    }
 
     @ViewBuilder
-    private func row(for task: TaskItem) -> some View {
-        // Отображение родительской задачи
+    private func rowContent(for task: TaskItem) -> some View {
         HStack {
-            // Проверяем, находится ли задача в секции "Не будет выполнено"
             if selectedSection == .notDone {
                 Image(systemName: "square.slash")
                     .foregroundColor(.gray)
@@ -278,7 +264,6 @@ struct HomeView: View {
                         .foregroundColor(.secondary)
                         .lineLimit(1)
                 }
-
                 if task.imageData != nil {
                     HStack(spacing: 2) {
                         Image(systemName: "paperclip")
@@ -307,13 +292,14 @@ struct HomeView: View {
             .tint(.red)
         }
         .padding(.vertical, 8)
+        .id(task.refreshID)
 
-        // Отображение незавершённых подзадач
-        let incompleteSubtasks = task.subtasks.filter { !$0.isCompleted }
+        // Вместо print тут просто показываем подзадачи, без отладки
+        let incompleteSubtasks = task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
         if !incompleteSubtasks.isEmpty {
             ForEach(incompleteSubtasks) { subtask in
                 HStack {
-                    Spacer().frame(width: 40) // Отступ для подзадачи
+                    Spacer().frame(width: 40)
                     Button {
                         complete(subtask)
                     } label: {
@@ -361,10 +347,97 @@ struct HomeView: View {
                     .tint(.red)
                 }
                 .padding(.vertical, 4)
+                .id(subtask.refreshID)
+
+                let nestedSubtasks = subtask.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
+                if !nestedSubtasks.isEmpty {
+                    ForEach(nestedSubtasks) { nested in
+                        subtaskRow(for: nested, level: 2)
+                    }
+                }
             }
         }
     }
 
+    // ---------------------------------------------------------
+    // ЕДИНСТВЕННАЯ (и «тайп-эрейзенная») реализация subtaskRow
+    // ---------------------------------------------------------
+    private func subtaskRow(for subtask: TaskItem, level: Int) -> AnyView {
+        // 1) Базовая строка для текущей подзадачи
+        let base = HStack {
+            Spacer().frame(width: CGFloat(40 * level))
+            Button {
+                complete(subtask)
+            } label: {
+                Image(systemName: subtask.isCompleted ? "checkmark.square.fill" : "square")
+                    .foregroundColor(subtask.isCompleted ? .green : .primary)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading, spacing: 2) {
+                Text(subtask.title)
+                    .font(.subheadline)
+                    .foregroundColor(selectedSection == .notDone ? .gray : .primary)
+
+                if !subtask.details.isEmpty {
+                    Text(subtask.details.prefix(30))
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(1)
+                        .truncationMode(.tail)
+                }
+
+                if subtask.imageData != nil {
+                    HStack(spacing: 2) {
+                        Image(systemName: "paperclip")
+                            .font(.caption)
+                    }
+                    .foregroundColor(.secondary)
+                }
+            }
+
+            Spacer()
+
+            if subtask.priority != .none {
+                Image(systemName: "flag.fill")
+                    .foregroundColor(flagColor(for: subtask.priority))
+            }
+        }
+        .contentShape(Rectangle())
+        .onTapGesture { selectedTask = subtask }
+        .swipeActions(edge: .trailing) {
+            Button {
+                taskToDelete = subtask
+                showDeleteConfirmation = true
+            } label: {
+                Image(systemName: "trash")
+            }
+            .tint(.red)
+        }
+        .padding(.vertical, 4)
+
+        // 2) Ищем вложенные «дети»
+        let nested = subtask.subtasks.filter { !$0.isCompleted && !$0.isNotDone }
+
+        // 3) Если детей нет (или достигли глубины > 4), возвращаем просто базовую строку
+        guard !nested.isEmpty && level < 5 else {
+            return AnyView(base)
+        }
+
+        // 4) Собираем базовую строку + вложенные рекурсивные View
+        let combined = VStack(alignment: .leading, spacing: 0) {
+            base
+            ForEach(nested) { child in
+                subtaskRow(for: child, level: level + 1) // рекурсия
+            }
+        }
+
+        return AnyView(combined)
+    }
+
+    // ====================================
+    // Остальной код: plusButton, undoButton, работа с флагами и т.д.
+    // ====================================
     private func plusButton() -> some View {
         VStack {
             Spacer()
@@ -430,3 +503,4 @@ struct HomeView: View {
         }
     }
 }
+

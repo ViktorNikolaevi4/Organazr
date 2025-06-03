@@ -112,14 +112,12 @@ struct MoreOptionsView: View {
                 // Добавляем модальное окно для создания подзадачи
                 .sheet(isPresented: $showAddSubtaskSheet) {
                     AddSubtaskSheet { title in
-                        let newSubtask = TaskItem(
-                            title: title,
-                            parentTask: task // Устанавливаем текущую задачу как родительскую
-                        )
+                        let newSubtask = TaskItem(title: title, parentTask: task)
                         modelContext.insert(newSubtask)
-                        task.subtasks.append(newSubtask) // Добавляем подзадачу в массив
+                        task.refreshID = UUID() // Обновляем refreshID родительской задачи
                         do {
                             try modelContext.save()
+                            print("Контекст сохранен успешно. Подзадача: \(newSubtask.title), родитель: \(task.title)")
                         } catch {
                             print("Ошибка сохранения подзадачи: \(error)")
                         }
