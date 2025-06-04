@@ -6,14 +6,9 @@ import SwiftData
 /// При нажатии на квадратик вызываем переданный замыканием completeAction.
 struct TaskRowView: View {
     @Environment(\.modelContext) private var modelContext
-
-    /// Задача, которую рисуем.
     let task: TaskItem
-    /// Уровень вложенности (0 = корень, 1 = первая подзадача и т.д.)
     let level: Int
-    /// Замыкание, которое вызывается, когда нужно «пометить задачу выполненной».
     let completeAction: (TaskItem) -> Void
-    /// Замыкание при тапе на всю строку (например, открыть детальный экран).
     let onTap: (TaskItem) -> Void
 
     /// Отступ слева: 20 pt × level
@@ -86,7 +81,6 @@ struct TaskRowView: View {
     }
 }
 
-/// Главный экран со списком задач. Показывает до 6 уровней вложенности.
 /// После пометки задачи «выполнено» появляется жёлтая кнопка «Undo» слева внизу.
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
