@@ -2,11 +2,11 @@ import SwiftUI
 import SwiftData
 
 enum MenuSection {
-    case all, tomorrow, tasks, done, notDone, trash
+    case all, today, tomorrow, tasks, done, notDone, trash // Добавляем today
 }
 
 enum MenuSelection {
-    case system(MenuSection)  // ваши «Все», «Завтра» и т.п.
+    case system(MenuSection)  // ваши «Все», «Сегодня», «Завтра» и т.п.
     case custom(TaskList)     // пользовательский
 }
 
@@ -88,6 +88,7 @@ struct MenuModalView: View {
                     // 2) Стандартные пункты
                     Section("Системные") {
                         Button { select(.all) }      label: { Label("Все",                 systemImage: "tray.fill") }
+                        Button { select(.today) }    label: { Label("Сегодня",            systemImage: "sun.max.fill") } // Добавляем "Сегодня"
                         Button { select(.tomorrow) } label: { Label("Завтра",              systemImage: "sunrise.fill") }
                         Button { select(.tasks) }    label: { Label("Задачи",              systemImage: "list.bullet") }
                         Button { select(.done) }     label: { Label("Выполнено",           systemImage: "checkmark.circle.fill") }

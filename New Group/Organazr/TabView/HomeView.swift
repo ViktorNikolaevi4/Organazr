@@ -221,6 +221,7 @@ struct HomeView: View {
         } else {
             switch selectedSection {
             case .all:       return "Все"
+            case .today:     return "Сегодня"
             case .tomorrow:  return "Завтра"
             case .tasks:     return "Задачи"
             case .done:      return "Выполнено"
