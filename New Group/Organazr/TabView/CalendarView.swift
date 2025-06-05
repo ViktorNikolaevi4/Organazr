@@ -1,34 +1,81 @@
 import SwiftUI
+import SwiftData
+import Speech
+import AVFoundation
+
+struct CalendarTabIcon: View {
+    var body: some View {
+        // TimelineView обновляется каждые 60 секунд
+        TimelineView(.periodic(from: .now, by: 60)) { context in
+            let day = Calendar.current.component(.day, from: context.date)
+            ZStack {
+                Image(systemName: "calendar")
+                    .font(.system(size: 20, weight: .regular))
+                Text("\(day)")
+                    .font(.system(size: 12, weight: .bold))
+                    .offset(y: -1)
+            }
+        }
+    }
+}
 
 struct CalendarView: View {
-    @State private var selectedDate: Date = Date()
+    // MARK: — SwiftData
+    @Environment(\.modelContext) private var modelContext
 
+    /// Берём все задачи, будем фильтровать по dueDate
+    @Query(sort: [SortDescriptor<TaskItem>(\.title, order: .forward)])
+    private var allTasks: [TaskItem]
+
+    // MARK: — Состояние
+    @State private var selectedDate: Date = Date()
+    @State private var selectedTask: TaskItem? = nil     // для редактирования существующей
+    @State private var isAdding = false                   // для открытия AddTaskSheet
+    @State private var expandedStates: [UUID: Bool] = [:] // не особо нужен, т. к. в календаре мы обычно не показываем вложенности
+    @State private var recentlyCompleted: TaskItem? = nil
+    @State private var showUndo = false
+    @State private var sheetDetent: PresentationDetent = .medium
+
+    // MARK: — Календарь (русский, неделя с понедельника)
     private var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.locale = Locale(identifier: "ru_RU")
-        cal.firstWeekday = 2 // неделя начинается с понедельника
+        cal.firstWeekday = 2
         return cal
     }
 
     var body: some View {
         NavigationStack {
             ZStack(alignment: .bottomTrailing) {
-                Color(.systemGray6)
-                    .ignoresSafeArea()
+                Color(.systemGray6).ignoresSafeArea()
 
                 VStack(spacing: 0) {
+                    // 1) Верхняя панель: месяц + год + стрелки
                     monthHeader
+
                     Divider()
+
+                    // 2) Ряд с короткими названиями дней недели (ПН, ВТ, СР…)
                     weekdayHeader
+
+                    // 3) Сетка календаря
                     calendarGrid
-                    Spacer()
-                    emptyDayView
-                    Spacer()
+
+                    // 4) Если на выбранную дату есть задачи (невып и вып)
+                    //    – показываем список, иначе – «У вас свободный день»
+                    if tasksForSelectedDate.isEmpty && completedForSelectedDate.isEmpty {
+                        Spacer()
+                        emptyDayView
+                        Spacer()
+                    } else {
+                        taskListView
+                    }
                 }
 
-                // Плюс-кнопка (без логики)
+                // 5) Плюс «+»: открываем AddTaskSheet,
+                //    и при «Добавить» из AddTaskSheet создаём задачу с dueDate = selectedDate
                 Button {
-                    // ничего не делаем
+                    isAdding = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
                         .font(.system(size: 64))
@@ -41,9 +88,56 @@ struct CalendarView: View {
             }
             .navigationTitle(monthName(of: selectedDate).capitalized)
             .navigationBarTitleDisplayMode(.inline)
+
+            // --------------------------------------
+            // Лист редактирования уже созданной задачи
+            // --------------------------------------
+            .sheet(item: $selectedTask) { task in
+                TaskDetailSheet(task: task) {
+                    selectedTask = nil
+                    sheetDetent = .medium
+                }
+                .presentationDetents([.medium, .large], selection: $sheetDetent)
+                .presentationDragIndicator(.visible)
+            }
+
+            // --------------------------------------
+            // Лист создания новой «календарной» задачи
+            // (аналог AddTaskSheet, только обязательно помещаем dueDate = selectedDate)
+            // --------------------------------------
+            .sheet(isPresented: $isAdding) {
+                AddTaskSheet { title, priority in
+                    // Создаём новую задачу, но с dueDate = selectedDate
+                    let newTask = TaskItem(
+                        title: title,
+                        list: nil,
+                        details: "",
+                        isCompleted: false,
+                        priority: priority,
+                        isPinned: false,
+                        imageData: nil,
+                        isNotDone: false,
+                        parentTask: nil,
+                        dueDate: selectedDate  // <— вот здесь
+                    )
+                    modelContext.insert(newTask)
+                    do {
+                        try modelContext.save()
+                    } catch {
+                        print("Ошибка сохранения новой календарной задачи: \(error)")
+                    }
+                    isAdding = false
+                }
+                .presentationDetents([.fraction(0.4)])
+                .presentationDragIndicator(.visible)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
+            }
         }
     }
 
+    // ----------------------------------------
+    // Верхняя панель: «Июнь 2025» + ← / →
+    // ----------------------------------------
     private var monthHeader: some View {
         HStack {
             Text("\(monthName(of: selectedDate)) \(yearString(of: selectedDate))")
@@ -51,18 +145,14 @@ struct CalendarView: View {
                 .padding(.leading, 16)
             Spacer()
             Button {
-                if let prev = calendar.date(byAdding: .month, value: -1, to: selectedDate) {
-                    selectedDate = prev
-                }
+                moveMonth(by: -1)
             } label: {
                 Image(systemName: "chevron.left")
                     .foregroundColor(.specialBlue)
                     .font(.system(size: 20, weight: .medium))
             }
             Button {
-                if let next = calendar.date(byAdding: .month, value: 1, to: selectedDate) {
-                    selectedDate = next
-                }
+                moveMonth(by: 1)
             } label: {
                 Image(systemName: "chevron.right")
                     .foregroundColor(.specialBlue)
@@ -74,11 +164,21 @@ struct CalendarView: View {
         .background(Color(.systemGray6))
     }
 
-    private var weekdayHeader: some View {
-        let symbols = calendar.shortWeekdaySymbols
-        let startIndex = calendar.firstWeekday - 1 // 1 = Sunday, 2 = Monday
-        let ordered = Array(symbols[startIndex...] + symbols[..<startIndex])
+    private func moveMonth(by offset: Int) {
+        if let nextMonth = calendar.date(byAdding: .month, value: offset, to: selectedDate),
+           let newDate   = calendar.date(from: calendar.dateComponents([.year, .month], from: nextMonth))
+        {
+            selectedDate = newDate
+        }
+    }
 
+    // ----------------------------------------
+    // Ряд кратких названий дней недели (ПН, ВТ, СР…)
+    // ----------------------------------------
+    private var weekdayHeader: some View {
+        let symbols    = calendar.shortWeekdaySymbols     // ["вс","пн","вт","ср","чт","пт","сб"]
+        let startIndex = calendar.firstWeekday - 1         // = 1 → "пн"
+        let ordered    = Array(symbols[startIndex...] + symbols[..<startIndex])
         return HStack {
             ForEach(ordered, id: \.self) { day in
                 Text(day.uppercased())
@@ -90,9 +190,11 @@ struct CalendarView: View {
         .padding(.horizontal, 16)
     }
 
+    // ----------------------------------------
+    // Сетка календаря (6×7 = 42 ячейки)
+    // ----------------------------------------
     private var calendarGrid: some View {
         let days = makeDaysForCalendarGrid(for: selectedDate)
-
         return LazyVGrid(
             columns: Array(repeating: GridItem(.flexible()), count: 7),
             spacing: 8
@@ -105,34 +207,35 @@ struct CalendarView: View {
         .padding(.top, 8)
     }
 
+    // Одна ячейка «число» в календаре
     @ViewBuilder
     private func dayCell(for date: Date) -> some View {
-        let dayNumber = calendar.component(.day, from: date)
+        let dayNumber          = calendar.component(.day, from: date)
         let isFromCurrentMonth = calendar.isDate(date, equalTo: selectedDate, toGranularity: .month)
-        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
-        let isToday = calendar.isDateInToday(date)
+        let isSelected         = calendar.isDate(date, inSameDayAs: selectedDate)
+        let isToday            = calendar.isDateInToday(date)
 
         ZStack {
-            // 1) Если дата — выбранная, рисуем «закрашенный» кружок:
+            // Если дата — выбранная → рисуем круг-заливку
             if isSelected {
                 Circle()
                     .fill(Color.specialBlue)
                     .frame(width: 32, height: 32)
             }
-            // 2) Если дата — сегодняшняя, но не является одновременно выбранной,
-            //    рисуем тонкий контурный кружок:
+            // Если «сегодня», но не совпадает с выбранной → контур
             else if isToday {
                 Circle()
                     .stroke(Color.specialBlue, lineWidth: 1.5)
                     .frame(width: 32, height: 32)
             }
 
-            // 3) Сам текст числа. Цвет зависит от того, из какого месяца:
+            // Сам текст числа
             Text("\(dayNumber)")
                 .font(.system(size: 14, weight: .regular))
-                .foregroundColor(isFromCurrentMonth
-                    ? (isSelected ? .white : .primary)
-                    : .secondary
+                .foregroundColor(
+                    isFromCurrentMonth
+                        ? (isSelected ? .white : .primary)
+                        : .secondary
                 )
                 .frame(width: 32, height: 32)
         }
@@ -141,7 +244,9 @@ struct CalendarView: View {
         }
     }
 
-    // MARK: — “У вас есть свободный день”
+    // ----------------------------------------
+    // Если на выбранную дату нет задач: «У вас есть свободный день»
+    // ----------------------------------------
     private var emptyDayView: some View {
         VStack(spacing: 8) {
             Image(systemName: "calendar.circle")
@@ -161,8 +266,106 @@ struct CalendarView: View {
         .padding(.horizontal, 32)
     }
 
-    // MARK: — Вспомогательные методы
+    // ----------------------------------------
+    // Список задач под календарём
+    // ----------------------------------------
+    private var taskListView: some View {
+        // Список невыполненных (dueDate == selectedDate && !isCompleted)
+        let pending = tasksForSelectedDate
+        // Список выполненных (dueDate == selectedDate && isCompleted)
+        let done    = completedForSelectedDate
 
+        return ScrollView {
+            VStack(spacing: 0) {
+                // Секция «Сегодня» (или «Выбранная дата»)
+                if !pending.isEmpty {
+                    Section(header: headerView(text: "Сегодня")) {
+                        ForEach(pending) { task in
+                            TaskRowView(
+                                task: task,
+                                level: 0,
+                                completeAction: { tapped in
+                                    markCompleted(tapped)
+                                },
+                                onTap: { tapped in
+                                    selectedTask = tapped
+                                },
+                                isExpanded: .constant(false) // в календаре не показываем вложенности
+                            )
+                        }
+                    }
+                }
+
+                // Секция «Выполнено» (серая галочка и серый текст)
+                if !done.isEmpty {
+                    Section(header: headerView(text: "Выполнено")) {
+                        ForEach(done) { task in
+                            HStack {
+                                Image(systemName: "checkmark.square.fill")
+                                    .foregroundColor(.gray)
+                                Text(task.title)
+                                    .foregroundColor(.secondary)
+                                Spacer()
+                            }
+                            .padding(.vertical, 8)
+                        }
+                    }
+                }
+            }
+            .background(Color.white.cornerRadius(12))
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+        }
+    }
+
+    /// Заголовок для секции («СЕГОДНЯ», «ВЫПОЛНЕНО» и т. п.)
+    private func headerView(text: String) -> some View {
+        HStack {
+            Text(text.uppercased())
+                .font(.caption.weight(.semibold))
+                .foregroundColor(.secondary)
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
+        .background(Color(.systemGray6))
+    }
+
+    /// Помечает задачу выполненной и сохраняет
+    private func markCompleted(_ task: TaskItem) {
+        task.isCompleted = true
+        do {
+            try modelContext.save()
+        } catch {
+            print("Ошибка сохранения: \(error)")
+        }
+        recentlyCompleted = task
+        withAnimation { showUndo = true }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
+            withAnimation { showUndo = false }
+            recentlyCompleted = nil
+        }
+    }
+
+    // Список «невыполненных» задач для выбранной даты
+    private var tasksForSelectedDate: [TaskItem] {
+        allTasks.filter { task in
+            guard let d = task.dueDate else { return false }
+            return calendar.isDate(d, inSameDayAs: selectedDate)
+                && !task.isCompleted
+        }
+    }
+
+    // Список «выполненных» задач для выбранной даты
+    private var completedForSelectedDate: [TaskItem] {
+        allTasks.filter { task in
+            guard let d = task.dueDate else { return false }
+            return calendar.isDate(d, inSameDayAs: selectedDate)
+                && task.isCompleted
+        }
+    }
+
+    // Построение массива из 42 дат (6×7) для календаря
     private func makeDaysForCalendarGrid(for referenceDate: Date) -> [Date] {
         guard let startOfMonth = calendar.date(
             from: calendar.dateComponents([.year, .month], from: referenceDate)
@@ -179,6 +382,7 @@ struct CalendarView: View {
         }
     }
 
+    /// Название месяца по-русски, например “июнь”
     private func monthName(of date: Date) -> String {
         let df = DateFormatter()
         df.locale = Locale(identifier: "ru_RU")
@@ -186,6 +390,7 @@ struct CalendarView: View {
         return df.string(from: date)
     }
 
+    /// Год, например “2025”
     private func yearString(of date: Date) -> String {
         let df = DateFormatter()
         df.dateFormat = "yyyy"
@@ -193,17 +398,3 @@ struct CalendarView: View {
     }
 }
 
-struct CalendarTabIcon: View {
-    var body: some View {
-        TimelineView(.periodic(from: .now, by: 60)) { context in
-            let day = Calendar.current.component(.day, from: context.date)
-            ZStack {
-                Image(systemName: "calendar")
-                    .font(.system(size: 20, weight: .regular))
-                Text("\(day)")
-                    .font(.system(size: 12, weight: .bold))
-                    .offset(y: -1)
-            }
-        }
-    }
-}
