@@ -31,7 +31,6 @@ final class TaskItem: Identifiable {
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.parentTask)
     var subtasks: [TaskItem] = []
 
-    // Добавим свойство для триггера обновления
     var refreshID: UUID = UUID()
 
     init(
@@ -54,6 +53,17 @@ final class TaskItem: Identifiable {
         self.imageData = imageData
         self.isNotDone = isNotDone
         self.parentTask = parentTask
+    }
+
+    // Функция для вычисления глубины задачи (уровня вложенности)
+    func depth() -> Int {
+        var currentDepth = 0
+        var currentTask = self
+        while let parent = currentTask.parentTask {
+            currentDepth += 1
+            currentTask = parent
+        }
+        return currentDepth
     }
 }
 // priority: Priority = .none,

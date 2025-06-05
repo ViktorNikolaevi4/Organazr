@@ -515,4 +515,3 @@ struct HomeView: View {
         recentlyCompleted = nil
     }
 }
-

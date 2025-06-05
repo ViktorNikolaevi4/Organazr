@@ -26,118 +26,131 @@ struct MoreOptionsView: View {
     @Bindable var task: TaskItem
     @State private var showActivityView = false
     @State private var showAddSubtaskSheet = false
+    @State private var showDepthLimitAlert = false // Для алерта об ограничении вложенности
+
+    private let maxDepthAllowed = 5 // Максимальная глубина вложенности
 
     var body: some View {
-            ZStack {
-                Color(.systemGray6)
-                    .ignoresSafeArea()
+        ZStack {
+            Color(.systemGray6)
+                .ignoresSafeArea()
 
-                VStack(spacing: 24) {
-                    // Верхняя панель из четырёх кнопок
-                    HStack(alignment: .top, spacing: 16) {
-                        OptionButton(
-                            systemName: task.isPinned ? "pin.slash" : "pin.fill",
-                            title: task.isPinned ? "Открепить" : "Закрепить",
-                            iconColor: .orange
-                        ) {
-                            task.isPinned.toggle()
-                            dismiss()
-                        }
-                        OptionButton(
-                            systemName: "square.and.arrow.up",
-                            title: "Поделиться",
-                            iconColor: .green
-                        ) {
-                            showActivityView = true
-                        }
-                        OptionButton(
-                            systemName: task.isNotDone ? "arrow.uturn.left.circle.fill" : "xmark.circle.fill",
-                            title: task.isNotDone ? "Вернуть" : "Не буду делать",
-                            iconColor: task.isNotDone ? .green : .blue
-                        ) {
-                            if task.isNotDone {
-                                task.isNotDone = false
-                            } else {
-                                task.isNotDone = true
-                            }
-                            dismiss()
-                        }
-                        OptionButton(
-                            systemName: "trash.fill",
-                            title: "Удалить",
-                            iconColor: .red
-                        ) {
-                            modelContext.delete(task)
-                            dismiss()
-                        }
+            VStack(spacing: 24) {
+                // Верхняя панель из четырёх кнопок
+                HStack(alignment: .top, spacing: 16) {
+                    OptionButton(
+                        systemName: task.isPinned ? "pin.slash" : "pin.fill",
+                        title: task.isPinned ? "Открепить" : "Закрепить",
+                        iconColor: .orange
+                    ) {
+                        task.isPinned.toggle()
+                        dismiss()
                     }
-                    .padding(.horizontal)
+                    OptionButton(
+                        systemName: "square.and.arrow.up",
+                        title: "Поделиться",
+                        iconColor: .green
+                    ) {
+                        showActivityView = true
+                    }
+                    OptionButton(
+                        systemName: task.isNotDone ? "arrow.uturn.left.circle.fill" : "xmark.circle.fill",
+                        title: task.isNotDone ? "Вернуть" : "Не буду делать",
+                        iconColor: task.isNotDone ? .green : .blue
+                    ) {
+                        if task.isNotDone {
+                            task.isNotDone = false
+                        } else {
+                            task.isNotDone = true
+                        }
+                        dismiss()
+                    }
+                    OptionButton(
+                        systemName: "trash.fill",
+                        title: "Удалить",
+                        iconColor: .red
+                    ) {
+                        modelContext.delete(task)
+                        dismiss()
+                    }
+                }
+                .padding(.horizontal)
 
-                    VStack(spacing: 0) {
-                        ForEach(menuItems.indices, id: \.self) { idx in
-                            let item = menuItems[idx]
-                            HStack {
-                                Text(item.title)
-                                    .font(.body)
-                                Spacer()
-                                Image(systemName: item.systemImage)
-                                    .foregroundColor(.secondary)
-                            }
-                            .padding(.vertical, 14)
-                            .padding(.horizontal)
-                            .background(Color.white)
-                            .contentShape(Rectangle())
-                            .onTapGesture {
-                                // Обрабатываем нажатие на "Добавить подзадачу"
-                                if item.title == "Добавить подзадачу" {
+                VStack(spacing: 0) {
+                    ForEach(menuItems.indices, id: \.self) { idx in
+                        let item = menuItems[idx]
+                        HStack {
+                            Text(item.title)
+                                .font(.body)
+                            Spacer()
+                            Image(systemName: item.systemImage)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.vertical, 14)
+                        .padding(.horizontal)
+                        .background(Color.white)
+                        .contentShape(Rectangle())
+                        .onTapGesture {
+                            // Обрабатываем нажатие на "Добавить подзадачу"
+                            if item.title == "Добавить подзадачу" {
+                                // Проверяем глубину текущей задачи
+                                if task.depth() >= maxDepthAllowed {
+                                    showDepthLimitAlert = true
+                                } else {
                                     showAddSubtaskSheet = true
                                 }
                             }
-                            if idx < menuItems.count - 1 {
-                                Divider()
-                                    .padding(.leading)
-                            }
+                        }
+                        if idx < menuItems.count - 1 {
+                            Divider()
+                                .padding(.leading)
                         }
                     }
-                    .background(Color.white)
-                    .cornerRadius(16)
-                    .padding(.horizontal)
+                }
+                .background(Color.white)
+                .cornerRadius(16)
+                .padding(.horizontal)
 
-                    Spacer()
-                }
-                .padding(.top)
-                .sheet(isPresented: $showActivityView) {
-                    ActivityView(items: [shareText()])
-                }
-                // Добавляем модальное окно для создания подзадачи
-                .sheet(isPresented: $showAddSubtaskSheet) {
-                    AddSubtaskSheet { title in
-                        let newSubtask = TaskItem(title: title, parentTask: task)
-                        modelContext.insert(newSubtask)
-                        task.refreshID = UUID() // Обновляем refreshID родительской задачи
-                        do {
-                            try modelContext.save()
-                            print("Контекст сохранен успешно. Подзадача: \(newSubtask.title), родитель: \(task.title)")
-                        } catch {
-                            print("Ошибка сохранения подзадачи: \(error)")
-                        }
-                        showAddSubtaskSheet = false
+                Spacer()
+            }
+            .padding(.top)
+            .sheet(isPresented: $showActivityView) {
+                ActivityView(items: [shareText()])
+            }
+            // Добавляем модальное окно для создания подзадачи
+            .sheet(isPresented: $showAddSubtaskSheet) {
+                AddSubtaskSheet { title in
+                    let newSubtask = TaskItem(title: title, parentTask: task)
+                    modelContext.insert(newSubtask)
+                    task.refreshID = UUID() // Обновляем refreshID родительской задачи
+                    do {
+                        try modelContext.save()
+                        print("Контекст сохранен успешно. Подзадача: \(newSubtask.title), родитель: \(task.title)")
+                    } catch {
+                        print("Ошибка сохранения подзадачи: \(error)")
                     }
-                    .presentationDetents([.fraction(0.4)])
-                    .presentationDragIndicator(.visible)
-                    .ignoresSafeArea(.keyboard, edges: .bottom)
+                    showAddSubtaskSheet = false
                 }
+                .presentationDetents([.fraction(0.4)])
+                .presentationDragIndicator(.visible)
+                .ignoresSafeArea(.keyboard, edges: .bottom)
             }
-        }
-
-        private func shareText() -> String {
-            var text = "Задача: \(task.title)"
-            if !task.details.isEmpty {
-                text += "\nОписание: \(task.details)"
+            .alert("Ограничение вложенности", isPresented: $showDepthLimitAlert) {
+                Button("OK") { }
+            } message: {
+                Text("Максимальная глубина вложенности — \(maxDepthAllowed) уровней.")
             }
-            return text
         }
     }
+
+    private func shareText() -> String {
+        var text = "Задача: \(task.title)"
+        if !task.details.isEmpty {
+            text += "\nОписание: \(task.details)"
+        }
+        return text
+    }
+}
 
 private struct OptionButton: View {
     let systemName: String
@@ -158,7 +171,7 @@ private struct OptionButton: View {
     var body: some View {
         VStack(spacing: 8) {
             Button {
-                action() // Исправляем вызов действия
+                action()
             } label: {
                 Image(systemName: systemName)
                     .font(.system(size: 20))
@@ -181,7 +194,6 @@ private struct OptionButton: View {
         .frame(maxWidth: .infinity, alignment: .top)
     }
 }
-import SwiftUI
 import UIKit
 
 struct ActivityView: UIViewControllerRepresentable {
