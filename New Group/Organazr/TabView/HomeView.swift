@@ -4,12 +4,19 @@ import SwiftData
 /// Одна строка списка (задача или подзадача).
 /// Выводим её с учётом уровня вложенности (level).
 /// При нажатии на квадратик вызываем переданный замыканием completeAction.
+import SwiftUI
+import SwiftData
+
+/// Одна строка списка (задача или подзадача).
+/// Выводим её с учётом уровня вложенности (level).
+/// При нажатии на квадратик вызываем переданный замыканием completeAction.
 struct TaskRowView: View {
     @Environment(\.modelContext) private var modelContext
     let task: TaskItem
     let level: Int
     let completeAction: (TaskItem) -> Void
     let onTap: (TaskItem) -> Void
+    @Binding var isExpanded: Bool // Состояние сворачивания/разворачивания
 
     /// Отступ слева: 20 pt × level
     private var indentWidth: CGFloat {
@@ -17,58 +24,76 @@ struct TaskRowView: View {
     }
 
     var body: some View {
-        HStack(spacing: 12) {
-            // Отступ для визуализации вложенности
-            Spacer()
-                .frame(width: indentWidth)
+        VStack(alignment: .leading, spacing: 0) {
+            HStack(spacing: 12) {
+                // Отступ для визуализации вложенности
+                Spacer()
+                    .frame(width: indentWidth)
 
-            // Кнопка-чёкбокс
-            Button {
-                // вызываем замыкание, чтобы HomeView обработал логику «выполнено + Undo»
-                completeAction(task)
-            } label: {
-                Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                    .foregroundColor(task.isCompleted ? .green : .primary)
-            }
-            .buttonStyle(.plain)
+                // Кнопка-чёкбокс
+                Button {
+                    completeAction(task)
+                } label: {
+                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                        .foregroundColor(task.isCompleted ? .green : .primary)
+                }
+                .buttonStyle(.plain)
 
-            // Текстовый блок: название и детали
-            VStack(alignment: .leading, spacing: 4) {
-                Text(task.title)
-                    .font(.body)
-                    .foregroundColor(task.isCompleted ? .gray : .primary)
+                // Текстовый блок: название и детали
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack {
+                        Text(task.title)
+                            .font(.body)
+                            .foregroundColor(task.isCompleted ? .gray : .primary)
 
-                if !task.details.isEmpty {
-                    Text(task.details)
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                        .lineLimit(1)
-                        .truncationMode(.tail)
+                        // Показываем количество подзадач и кнопку сворачивания/разворачивания
+                        if !task.subtasks.isEmpty {
+                            Spacer()
+                            Text("\(task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }.count)")
+                                .foregroundColor(.secondary)
+                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                                .foregroundColor(.secondary)
+                        }
+                    }
+
+                    if !task.details.isEmpty {
+                        Text(task.details)
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                            .lineLimit(1)
+                            .truncationMode(.tail)
+                    }
+                }
+
+                Spacer()
+
+                // Флажок приоритета (если приоритет не .none)
+                if task.priority != .none {
+                    Image(systemName: "flag.fill")
+                        .foregroundColor(flagColor(for: task.priority))
                 }
             }
-
-            Spacer()
-
-            // Флажок приоритета (если приоритет не .none)
-            if task.priority != .none {
-                Image(systemName: "flag.fill")
-                    .foregroundColor(flagColor(for: task.priority))
+            .contentShape(Rectangle())
+            // При тапе на строку открываем детали, если нет подзадач, или сворачиваем/разворачиваем подзадачи
+            .onTapGesture {
+                if task.subtasks.isEmpty {
+                    onTap(task)
+                } else {
+                    withAnimation {
+                        isExpanded.toggle()
+                    }
+                }
             }
-        }
-        .contentShape(Rectangle())
-        // При тапе на всю строку вызываем onTap, чтобы открыть детали
-        .onTapGesture {
-            onTap(task)
-        }
-        // Свайп для удаления
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive) {
-                modelContext.delete(task)
-            } label: {
-                Label("Удалить", systemImage: "trash")
+            // Свайп для удаления
+            .swipeActions(edge: .trailing) {
+                Button(role: .destructive) {
+                    modelContext.delete(task)
+                } label: {
+                    Label("Удалить", systemImage: "trash")
+                }
             }
+            .padding(.vertical, 8)
         }
-        .padding(.vertical, 8)
     }
 
     private func flagColor(for priority: Priority) -> Color {
@@ -124,6 +149,9 @@ struct HomeView: View {
     /// Задача, которую собираемся удалить (для ConfirmationDialog)
     @State private var taskToDelete: TaskItem?
 
+    /// Состояние сворачивания/разворачивания для каждой задачи
+    @State private var expandedStates: [UUID: Bool] = [:]
+
     /// Кодовый предел вложенности: 0…5 включительно (то есть 6 пользовательских уровней).
     private let maxDepthAllowed = 5
 
@@ -144,7 +172,7 @@ struct HomeView: View {
 
     // MARK: — Плоские массивы для отображения вложенности
 
-    /// «Плоский» массив (задача, уровень) для закреплённых задач (до 6 уровней).
+    /// «Плоский» массив (задача, уровень, состояние сворачивания) для закреплённых задач.
     private var pinnedDisplayRows: [(TaskItem, Int)] {
         var result: [(TaskItem, Int)] = []
         for root in tasks.filter(\.isPinned) {
@@ -153,7 +181,7 @@ struct HomeView: View {
         return result
     }
 
-    /// «Плоский» массив для обычных (не закреплённых) задач (до 6 уровней).
+    /// «Плоский» массив для обычных (не закреплённых) задач.
     private var normalDisplayRows: [(TaskItem, Int)] {
         var result: [(TaskItem, Int)] = []
         for root in tasks.filter({ !$0.isPinned }) {
@@ -162,13 +190,19 @@ struct HomeView: View {
         return result
     }
 
-    /// Рекурсия: добавляем текущую задачу + её кодовый уровень,
-    /// потом всех её детей, пока не достигнем level == maxDepthAllowed.
+    /// Рекурсия: добавляем текущую задачу + её уровень,
+    /// потом всех её детей, если задача развернута.
     private func traverse(task: TaskItem, level: Int, into array: inout [(TaskItem, Int)]) {
         array.append((task, level))
 
-        // Если уже дошли до 5-го кодового уровня (sixth user level), дальше не спускаемся
+        // Если уже дошли до 5-го уровня, дальше не спускаемся
         guard level < maxDepthAllowed else {
+            return
+        }
+
+        // Проверяем, развернута ли задача
+        let isExpanded = expandedStates[task.id] ?? false
+        if !isExpanded {
             return
         }
 
@@ -226,7 +260,8 @@ struct HomeView: View {
                                         completeAction: { _ in /* ничем не помечаем */ },
                                         onTap: { tapped in
                                             selectedTask = tapped
-                                        }
+                                        },
+                                        isExpanded: .constant(false) // Не разворачиваем в этой секции
                                     )
                                 }
                                 .onDelete { idxs in
@@ -261,16 +296,16 @@ struct HomeView: View {
                     }
                 }
                 // ==========================================
-                // 3) Основной List: «Закреплено» + «Задачи»
+                // 3) Основной List: «Закреплённые» + «Задачи»
                 // ==========================================
                 else {
                     List {
                         // ------------------------------------------
-                        // 3.1) Секция «Закреплено»
+                        // 3.1) Секция «Закреплённые»
                         // ------------------------------------------
                         if !pinnedDisplayRows.isEmpty {
                             Section {
-                                // Заголовок-кнопка «Закреплено»
+                                // Заголовок-кнопка «Закреплённые»
                                 Button {
                                     withAnimation {
                                         isPinnedExpanded.toggle()
@@ -279,7 +314,7 @@ struct HomeView: View {
                                     HStack {
                                         Image(systemName: "pin.fill")
                                             .foregroundColor(.orange)
-                                        Text("Закреплено")
+                                        Text("Закреплённые")
                                             .font(.headline)
                                         Spacer()
                                         Text("\(tasks.filter(\.isPinned).count)")
@@ -291,11 +326,11 @@ struct HomeView: View {
                                 }
                                 .buttonStyle(.plain)
 
-                                // Если «Закреплено» развернуто, выводим до 6 уровней
+                                // Если «Закреплённые» развернуты, выводим до 6 уровней
                                 if isPinnedExpanded {
                                     ForEach(pinnedDisplayRows, id: \.0.id) { pair in
                                         let task = pair.0
-                                        let lvl  = pair.1
+                                        let lvl = pair.1
                                         TaskRowView(
                                             task: task,
                                             level: lvl,
@@ -304,7 +339,11 @@ struct HomeView: View {
                                             },
                                             onTap: { tapped in
                                                 selectedTask = tapped
-                                            }
+                                            },
+                                            isExpanded: Binding(
+                                                get: { expandedStates[task.id] ?? false },
+                                                set: { expandedStates[task.id] = $0 }
+                                            )
                                         )
                                     }
                                 }
@@ -318,7 +357,7 @@ struct HomeView: View {
                             Section("Задачи") {
                                 ForEach(normalDisplayRows, id: \.0.id) { pair in
                                     let task = pair.0
-                                    let lvl  = pair.1
+                                    let lvl = pair.1
                                     TaskRowView(
                                         task: task,
                                         level: lvl,
@@ -327,7 +366,11 @@ struct HomeView: View {
                                         },
                                         onTap: { tapped in
                                             selectedTask = tapped
-                                        }
+                                        },
+                                        isExpanded: Binding(
+                                            get: { expandedStates[task.id] ?? false },
+                                            set: { expandedStates[task.id] = $0 }
+                                        )
                                     )
                                 }
                             }
@@ -347,7 +390,6 @@ struct HomeView: View {
                 // 5) Жёлтая кнопка «Undo» (если showUndo == true)
                 // ==========================================
                 if showUndo {
-                    // Жёлтая круглая кнопка с иконкой «стрелка назад»
                     Button {
                         undoComplete()
                     } label: {
@@ -380,9 +422,6 @@ struct HomeView: View {
                     }
                 }
             }
-            // ==========================================
-            // Sheet: TaskDetailSheet при выборе задачи
-            // ==========================================
             .sheet(item: $selectedTask) { task in
                 TaskDetailSheet(task: task) {
                     selectedTask = nil
@@ -396,9 +435,6 @@ struct HomeView: View {
                     }
                 }
             }
-            // ==========================================
-            // Sheet: AddTaskSheet при нажатии «+»
-            // ==========================================
             .sheet(isPresented: $isAdding) {
                 AddTaskSheet { title, priority in
                     let newItem = TaskItem(title: title, list: selectedList, priority: priority)
@@ -409,9 +445,6 @@ struct HomeView: View {
                 .presentationDragIndicator(.visible)
                 .ignoresSafeArea(.keyboard, edges: .bottom)
             }
-            // ==========================================
-            // Sheet: MenuModalView при «гамбургере»
-            // ==========================================
             .sheet(isPresented: $showMenu) {
                 MenuModalView { selection in
                     switch selection {
@@ -423,9 +456,6 @@ struct HomeView: View {
                     }
                 }
             }
-            // ==========================================
-            // ConfirmationDialog: подтверждение удаления
-            // ==========================================
             .confirmationDialog("Удалить задачу?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) {
                     if let task = taskToDelete {
@@ -466,30 +496,20 @@ struct HomeView: View {
 
     // MARK: — Логика пометки задачи выполненной и показа Undo
     private func complete(_ task: TaskItem) {
-        // Ставим флаг «выполнено»
         task.isCompleted = true
-
-        // Сохраняем контекст
         do {
             try modelContext.save()
         } catch {
             print("Ошибка при сохранении: \(error)")
         }
-
-        // Запомним эту задачу как «recentlyCompleted» для Undo
         recentlyCompleted = task
-
-        // Показать кнопку «Undo»
         withAnimation {
             showUndo = true
         }
-
-        // Через 3 секунды скрываем кнопку «Undo», если пользователь не нажмет
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
             withAnimation {
                 showUndo = false
             }
-            // Сбрасываем сохраненную область (необязательно, но удобно)
             recentlyCompleted = nil
         }
     }
@@ -498,20 +518,14 @@ struct HomeView: View {
     private func undoComplete() {
         guard let t = recentlyCompleted else { return }
         t.isCompleted = false
-
-        // Сохраняем контекст
         do {
             try modelContext.save()
         } catch {
             print("Ошибка при сохранении: \(error)")
         }
-
-        // Скрываем кнопку «Undo»
         withAnimation {
             showUndo = false
         }
-
-        // Сбрасываем reference на «undo-задачу»
         recentlyCompleted = nil
     }
 }
