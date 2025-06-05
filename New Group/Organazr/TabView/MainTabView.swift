@@ -15,7 +15,7 @@ struct MainTabView: View {
                 .tag(0)
 
             // 2. Поиск
-            SearchView()
+            CalendarView()
                 .tabItem {
                     // только календарь, без подписи
                     CalendarTabIcon()
