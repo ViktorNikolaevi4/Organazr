@@ -289,36 +289,91 @@ struct CalendarView: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 32)
     }
+    private var calendarRoots: [TaskItem] {
+        allTasks.filter { task in
+            guard let d = task.dueDate else { return false }
+            return calendar.isDate(d, inSameDayAs: selectedDate)
+                && task.parentTask == nil
+        }
+    }
 
+    // Плоский список всех задач и подзадач для выбранного дня
+    private var calendarAllRows: [(task: TaskItem, level: Int)] {
+        var result: [(TaskItem, Int)] = []
+        for root in calendarRoots {
+            flatten(task: root, level: 0, into: &result)
+        }
+        return result
+    }
+
+    // Рекурсивный обход: он добавляет сначала саму задачу, а если она развернута — и её потомков
+    private func flatten(task: TaskItem, level: Int, into array: inout [(TaskItem, Int)]) {
+        array.append((task, level))
+        guard level < maxCalendarDepth else { return }
+        // если задача не развернута — дальше не углубляемся
+        guard expandedStates[task.id] == true else { return }
+
+        // все её прямые подзадачи, у которых либо нет своей даты, либо дата совпадает
+        let children = task.subtasks.filter { sub in
+            sub.dueDate == nil ||
+            calendar.isDate(sub.dueDate!, inSameDayAs: selectedDate)
+        }
+        for child in children {
+            flatten(task: child, level: level + 1, into: &array)
+        }
+    }
+    private func collectCompleted(_ task: TaskItem, into array: inout [TaskItem]) {
+        if task.isCompleted {
+            array.append(task)
+        }
+        for child in task.subtasks {
+            // только те, что относятся к этой дате (или у которых нет даты)
+            if child.dueDate == nil || calendar.isDate(child.dueDate!, inSameDayAs: selectedDate) {
+                collectCompleted(child, into: &array)
+            }
+        }
+    }
+    private var allDoneForDate: [TaskItem] {
+        var result: [TaskItem] = []
+        for root in calendarRoots {
+            collectCompleted(root, into: &result)
+        }
+        return result
+    }
     // ----------------------------------------
     // Список задач под календарём
     // ----------------------------------------
-    private var taskListView: some View {
-        let pendingRows = calendarDisplayRows
-        let done = completedForSelectedDate
+    private var pendingRows: [(TaskItem, Int)] {
+        calendarAllRows.filter { !$0.0.isCompleted }
+    }
+    private var doneRows: [(TaskItem, Int)] {
+        calendarAllRows.filter { $0.0.isCompleted }
+    }
 
-        return ScrollView {
+    private var taskListView: some View {
+        ScrollView {
             VStack(spacing: 0) {
+                // Невыполненные остаются как есть
                 if !pendingRows.isEmpty {
                     Section(header: headerView(text: "Сегодня")) {
-                        ForEach(pendingRows, id: \.task.id) { pair in
+                        ForEach(pendingRows, id: \.0.id) { pair in
                             TaskRowView(
-                                task: pair.task,
-                                level: pair.level,
-                                completeAction: { tapped in markCompleted(tapped) },
-                                onTap: { tapped in selectedTask = tapped },
+                                task: pair.0,
+                                level: pair.1,
+                                completeAction: markCompleted,
+                                onTap: { selectedTask = $0 },
                                 isExpanded: Binding(
-                                    get: { expandedStates[pair.task.id] ?? false },
-                                    set: { expandedStates[pair.task.id] = $0 }
+                                    get: { expandedStates[pair.0.id] ?? false },
+                                    set: { expandedStates[pair.0.id] = $0 }
                                 )
                             )
                         }
                     }
                 }
-                // Секция «Выполнено» (серая галочка и серый текст)
-                if !done.isEmpty {
+
+                     if !allDoneForDate.isEmpty {
                     Section(header: headerView(text: "Выполнено")) {
-                        ForEach(done) { task in
+                        ForEach(allDoneForDate, id: \.id) { task in
                             HStack {
                                 Image(systemName: "checkmark.square.fill")
                                     .foregroundColor(.gray)
@@ -336,6 +391,7 @@ struct CalendarView: View {
             .padding(.top, 8)
         }
     }
+
 
     /// Заголовок для секции («СЕГОДНЯ», «ВЫПОЛНЕНО» и т. п.)
     private func headerView(text: String) -> some View {
