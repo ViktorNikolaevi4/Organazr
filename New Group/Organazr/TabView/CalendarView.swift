@@ -636,7 +636,3 @@ struct RescheduleSheet: View {
         }
     }
 }
-
-// ... (Остальной код CalendarView остаётся без изменений) ...
-
-// ... (Остальной код CalendarView остаётся без изменений) ...
