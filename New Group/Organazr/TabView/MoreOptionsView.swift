@@ -242,7 +242,7 @@ struct AddSubtaskSheet: View {
                     Text("Добавить")
                         .frame(maxWidth: .infinity)
                         .padding()
-                        .background(title.isEmpty ? Color.gray : Color.blue)
+                        .background(title.isEmpty ? Color.gray : Color.specialBlue)
                         .foregroundColor(.white)
                         .cornerRadius(8)
                 }
