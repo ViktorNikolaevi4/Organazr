@@ -406,14 +406,24 @@ struct CalendarView: View {
         .background(Color(.systemGray6))
     }
 
+    private func completeRecursively(_ task: TaskItem) {
+        task.isCompleted = true
+        for sub in task.subtasks {
+            completeRecursively(sub)
+        }
+    }
+
     /// Помечает задачу выполненной и сохраняет
     private func markCompleted(_ task: TaskItem) {
-        task.isCompleted = true
+        // сначала рекурсивно помечаем саму задачу и все её потомки
+        completeRecursively(task)
+        // сохраняем контекст один раз
         do {
             try modelContext.save()
         } catch {
             print("Ошибка сохранения: \(error)")
         }
+        // дальше ваша логика Undo
         recentlyCompleted = task
         withAnimation { showUndo = true }
         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
