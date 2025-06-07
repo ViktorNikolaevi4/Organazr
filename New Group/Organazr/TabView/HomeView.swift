@@ -3,13 +3,14 @@ import SwiftData
 
 struct TaskRowView: View {
     @Environment(\.modelContext) private var modelContext
+
     let task: TaskItem
     let level: Int
     let completeAction: (TaskItem) -> Void
     let onTap: (TaskItem) -> Void
-    @Binding var isExpanded: Bool // Состояние сворачивания/разворачивания
+    @Binding var isExpanded: Bool   // Состояние сворачивания/разворачивания
 
-    /// Отступ слева: 20 pt × level
+    /// Отступ слева: 20 pt × уровень вложенности
     private var indentWidth: CGFloat {
         CGFloat(level) * 20
     }
@@ -17,65 +18,59 @@ struct TaskRowView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
-                // Отступ для визуализации вложенности
-                Spacer()
-                    .frame(width: indentWidth)
+                // Отступ для уровня вложенности
+                Spacer().frame(width: indentWidth)
 
-                // Кнопка-чёкбокс
-                Button {
-                    completeAction(task)
-                } label: {
+                // Чекбокс
+                Button { completeAction(task) }
+                label: {
                     Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
                         .foregroundColor(task.isCompleted ? .green : .primary)
                 }
                 .buttonStyle(.plain)
 
-                // Текстовый блок: название и детали
+                // Заголовок и детали
                 VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(task.title)
-                            .font(.body)
-                            .foregroundColor(task.isCompleted ? .gray : .primary)
-
-                        // Показываем количество подзадач и кнопку сворачивания/разворачивания
-                        if !task.subtasks.isEmpty {
-                            Spacer()
-                            Text("\(task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }.count)")
-                                .foregroundColor(.secondary)
-                            Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                                .foregroundColor(.secondary)
-                        }
-                    }
-
+                    Text(task.title)
+                        .font(.body)
+                        .foregroundColor(task.isCompleted ? .gray : .primary)
                     if !task.details.isEmpty {
                         Text(task.details)
                             .font(.caption)
                             .foregroundColor(.secondary)
                             .lineLimit(1)
-                            .truncationMode(.tail)
                     }
                 }
 
                 Spacer()
 
-                // Флажок приоритета (если приоритет не .none)
+                // Если есть подзадачи — показываем счётчик и кнопку-стрелку
+                if !task.subtasks.isEmpty {
+                    Text("\(task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }.count)")
+                        .foregroundColor(.secondary)
+
+                    Button {
+                        withAnimation { isExpanded.toggle() }
+                    } label: {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .foregroundColor(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                // Флажок приоритета
                 if task.priority != .none {
                     Image(systemName: "flag.fill")
                         .foregroundColor(flagColor(for: task.priority))
                 }
             }
             .contentShape(Rectangle())
-            // При тапе на строку открываем детали, если нет подзадач, или сворачиваем/разворачиваем подзадачи
+            // Теперь по тапу на строку (в любом месте, кроме стрелки)
+            // всегда вызываем onTap и открываем TaskDetailSheet
             .onTapGesture {
-                if task.subtasks.isEmpty {
-                    onTap(task)
-                } else {
-                    withAnimation {
-                        isExpanded.toggle()
-                    }
-                }
+                onTap(task)
             }
-            // Свайп для удаления
+            // Свайп-действие для удаления
             .swipeActions(edge: .trailing) {
                 Button(role: .destructive) {
                     modelContext.delete(task)
@@ -87,6 +82,7 @@ struct TaskRowView: View {
         }
     }
 
+    // Вспомогательный метод для цвета флага
     private func flagColor(for priority: Priority) -> Color {
         switch priority {
         case .high:   return .red
@@ -96,6 +92,7 @@ struct TaskRowView: View {
         }
     }
 }
+
 
 struct HomeView: View {
     @Environment(\.modelContext) private var modelContext
@@ -462,4 +459,3 @@ struct HomeView: View {
         recentlyCompleted = nil
     }
 }
-

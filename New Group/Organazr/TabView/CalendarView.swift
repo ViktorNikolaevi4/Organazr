@@ -36,12 +36,22 @@ struct CalendarView: View {
     @State private var showUndo = false
     @State private var sheetDetent: PresentationDetent = .medium
 
+    private let maxCalendarDepth = 5
+
     // MARK: — Календарь (русский, неделя с понедельника)
     private var calendar: Calendar {
         var cal = Calendar(identifier: .gregorian)
         cal.locale = Locale(identifier: "ru_RU")
         cal.firstWeekday = 2
         return cal
+    }
+
+    private var calendarDisplayRows: [(task: TaskItem, level: Int)] {
+        var result: [(TaskItem, Int)] = []
+        for root in tasksForSelectedDate {
+            traverseCalendar(task: root, level: 0, into: &result)
+        }
+        return result
     }
 
     var body: some View {
@@ -163,6 +173,20 @@ struct CalendarView: View {
         .padding(.vertical, 8)
         .background(Color(.systemGray6))
     }
+    private func traverseCalendar(task: TaskItem, level: Int, into array: inout [(TaskItem, Int)]) {
+        array.append((task, level))
+        guard level < maxCalendarDepth else { return }
+        guard expandedStates[task.id] == true else { return }
+        let children = task.subtasks.filter { sub in
+            // показываем либо без даты, либо с той же, что и selectedDate
+            sub.dueDate == nil
+                || calendar.isDate(sub.dueDate!, inSameDayAs: selectedDate)
+        }
+        for child in children {
+            traverseCalendar(task: child, level: level + 1, into: &array)
+        }
+    }
+
 
     private func moveMonth(by offset: Int) {
         if let nextMonth = calendar.date(byAdding: .month, value: offset, to: selectedDate),
@@ -270,32 +294,27 @@ struct CalendarView: View {
     // Список задач под календарём
     // ----------------------------------------
     private var taskListView: some View {
-        // Список невыполненных (dueDate == selectedDate && !isCompleted)
-        let pending = tasksForSelectedDate
-        // Список выполненных (dueDate == selectedDate && isCompleted)
-        let done    = completedForSelectedDate
+        let pendingRows = calendarDisplayRows
+        let done = completedForSelectedDate
 
         return ScrollView {
             VStack(spacing: 0) {
-                // Секция «Сегодня» (или «Выбранная дата»)
-                if !pending.isEmpty {
+                if !pendingRows.isEmpty {
                     Section(header: headerView(text: "Сегодня")) {
-                        ForEach(pending) { task in
+                        ForEach(pendingRows, id: \.task.id) { pair in
                             TaskRowView(
-                                task: task,
-                                level: 0,
-                                completeAction: { tapped in
-                                    markCompleted(tapped)
-                                },
-                                onTap: { tapped in
-                                    selectedTask = tapped
-                                },
-                                isExpanded: .constant(false) // в календаре не показываем вложенности
+                                task: pair.task,
+                                level: pair.level,
+                                completeAction: { tapped in markCompleted(tapped) },
+                                onTap: { tapped in selectedTask = tapped },
+                                isExpanded: Binding(
+                                    get: { expandedStates[pair.task.id] ?? false },
+                                    set: { expandedStates[pair.task.id] = $0 }
+                                )
                             )
                         }
                     }
                 }
-
                 // Секция «Выполнено» (серая галочка и серый текст)
                 if !done.isEmpty {
                     Section(header: headerView(text: "Выполнено")) {
@@ -397,4 +416,3 @@ struct CalendarView: View {
         return df.string(from: date)
     }
 }
-
