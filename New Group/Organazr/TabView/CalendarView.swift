@@ -37,7 +37,8 @@ struct CalendarView: View {
     @State private var sheetDetent: PresentationDetent = .medium
     @State private var taskToDelete: TaskItem? = nil
     @State private var showDeleteConfirmation = false
-
+    @State private var showRescheduleSheet = false
+    @State private var taskToReschedule: TaskItem? = nil
 
     private let maxCalendarDepth = 5
 
@@ -101,6 +102,18 @@ struct CalendarView: View {
             }
             .navigationTitle(monthName(of: selectedDate).capitalized)
             .navigationBarTitleDisplayMode(.inline)
+            .sheet(item: $taskToReschedule) { task in
+                RescheduleSheet(
+                    task: task,
+                    onDone: { newDate in
+                        // ставим dueDate = newDate, сохраняем…
+                        task.dueDate = newDate
+                        try? modelContext.save()
+                        taskToReschedule = nil
+                    }
+                )
+                .presentationDetents([.fraction(0.33)])
+            }
             .confirmationDialog("Удалить задачу?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
                 Button("Удалить", role: .destructive) {
                     if let task = taskToDelete {
@@ -119,8 +132,6 @@ struct CalendarView: View {
             } message: {
                 Text("Задача будет удалена без возможности восстановления.")
             }
-
-
             // --------------------------------------
             // Лист редактирования уже созданной задачи
             // --------------------------------------
@@ -132,7 +143,6 @@ struct CalendarView: View {
                 .presentationDetents([.medium, .large], selection: $sheetDetent)
                 .presentationDragIndicator(.visible)
             }
-
             // --------------------------------------
             // Лист создания новой «календарной» задачи
             // (аналог AddTaskSheet, только обязательно помещаем dueDate = selectedDate)
@@ -195,6 +205,7 @@ struct CalendarView: View {
         .padding(.vertical, 8)
         .background(Color(.systemGray6))
     }
+
     private func traverseCalendar(task: TaskItem, level: Int, into array: inout [(TaskItem, Int)]) {
         array.append((task, level))
         guard level < maxCalendarDepth else { return }
@@ -209,10 +220,9 @@ struct CalendarView: View {
         }
     }
 
-
     private func moveMonth(by offset: Int) {
         if let nextMonth = calendar.date(byAdding: .month, value: offset, to: selectedDate),
-           let newDate   = calendar.date(from: calendar.dateComponents([.year, .month], from: nextMonth))
+           let newDate = calendar.date(from: calendar.dateComponents([.year, .month], from: nextMonth))
         {
             selectedDate = newDate
         }
@@ -222,9 +232,9 @@ struct CalendarView: View {
     // Ряд кратких названий дней недели (ПН, ВТ, СР…)
     // ----------------------------------------
     private var weekdayHeader: some View {
-        let symbols    = calendar.shortWeekdaySymbols     // ["вс","пн","вт","ср","чт","пт","сб"]
-        let startIndex = calendar.firstWeekday - 1         // = 1 → "пн"
-        let ordered    = Array(symbols[startIndex...] + symbols[..<startIndex])
+        let symbols = calendar.shortWeekdaySymbols     // ["вс","пн","вт","ср","чт","пт","сб"]
+        let startIndex = calendar.firstWeekday - 1     // = 1 → "пн"
+        let ordered = Array(symbols[startIndex...] + symbols[..<startIndex])
         return HStack {
             ForEach(ordered, id: \.self) { day in
                 Text(day.uppercased())
@@ -256,10 +266,10 @@ struct CalendarView: View {
     // Одна ячейка «число» в календаре
     @ViewBuilder
     private func dayCell(for date: Date) -> some View {
-        let dayNumber          = calendar.component(.day, from: date)
+        let dayNumber = calendar.component(.day, from: date)
         let isFromCurrentMonth = calendar.isDate(date, equalTo: selectedDate, toGranularity: .month)
-        let isSelected         = calendar.isDate(date, inSameDayAs: selectedDate)
-        let isToday            = calendar.isDateInToday(date)
+        let isSelected = calendar.isDate(date, inSameDayAs: selectedDate)
+        let isToday = calendar.isDateInToday(date)
 
         ZStack {
             // Если дата — выбранная → рисуем круг-заливку
@@ -311,6 +321,7 @@ struct CalendarView: View {
         .multilineTextAlignment(.center)
         .padding(.horizontal, 32)
     }
+
     private var calendarRoots: [TaskItem] {
         allTasks.filter { task in
             guard let d = task.dueDate else { return false }
@@ -344,6 +355,7 @@ struct CalendarView: View {
             flatten(task: child, level: level + 1, into: &array)
         }
     }
+
     private func collectCompleted(_ task: TaskItem, into array: inout [TaskItem]) {
         if task.isCompleted {
             array.append(task)
@@ -355,6 +367,7 @@ struct CalendarView: View {
             }
         }
     }
+
     private var allDoneForDate: [TaskItem] {
         var result: [TaskItem] = []
         for root in calendarRoots {
@@ -362,13 +375,15 @@ struct CalendarView: View {
         }
         return result
     }
+
     // ----------------------------------------
     // Список задач под календарём
     // ----------------------------------------
-    private var pendingRows: [(TaskItem, Int)] {
+    private var pendingRows: [(task: TaskItem, level: Int)] {
         calendarAllRows.filter { !$0.0.isCompleted }
     }
-    private var doneRows: [(TaskItem, Int)] {
+
+    private var doneRows: [(task: TaskItem, level: Int)] {
         calendarAllRows.filter { $0.0.isCompleted }
     }
 
@@ -389,7 +404,14 @@ struct CalendarView: View {
                                 set: { expandedStates[task.id] = $0 }
                             )
                         )
-                        // здесь свайпа больше нет
+                        .swipeActions(edge: .trailing) {
+                            Button {
+                                taskToReschedule = task
+                            } label: {
+                                Label("Дата", systemImage: "calendar")
+                            }
+                            .tint(.orange)
+                        }
                     }
                 }
             }
@@ -417,6 +439,7 @@ struct CalendarView: View {
                             Button(role: .destructive) {
                                 taskToDelete = task
                                 showDeleteConfirmation = true
+
                             } label: {
                                 Label("Удалить", systemImage: "trash")
                             }
@@ -427,9 +450,6 @@ struct CalendarView: View {
         }
         .listStyle(.insetGrouped)
     }
-
-
-
 
     /// Заголовок для секции («СЕГОДНЯ», «ВЫПОЛНЕНО» и т. п.)
     private func headerView(text: String) -> some View {
@@ -519,6 +539,7 @@ struct CalendarView: View {
         df.dateFormat = "yyyy"
         return df.string(from: date)
     }
+
     private func unmarkCompleted(_ task: TaskItem) {
         task.isCompleted = false
         do {
@@ -527,5 +548,90 @@ struct CalendarView: View {
             print("Ошибка при сохранении: \(error)")
         }
     }
-
 }
+
+struct RescheduleButton: View {
+    let icon: String
+    let label: String
+    let action: () -> Void
+    let showDay: Bool // Параметр для определения, показывать ли число дня
+
+    var body: some View {
+        VStack {
+            Button(action: action) {
+                if showDay {
+                    // Кастомная иконка с числом дня в стиле других иконок
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 12)
+                            .stroke(Color.purple, lineWidth: 2)
+                            .frame(width: 60, height: 60)
+                        Text("\(Calendar.current.component(.day, from: Date()))")
+                            .font(.system(size: 24, weight: .bold))
+                            .foregroundColor(.purple)
+                    }
+                } else {
+                    // Стандартная иконка с контуром
+                    Image(systemName: icon)
+                        .font(.largeTitle)
+                        .frame(width: 60, height: 60)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.purple, lineWidth: 2)
+                        )
+                }
+            }
+            Text(label)
+                .font(.caption)
+        }
+    }
+}
+
+struct RescheduleSheet: View {
+    let task: TaskItem
+    let onDone: (Date?) -> Void
+
+    @State private var pickedDate = Date() // Восстановили для DatePicker
+    @State private var showDatePicker = false // Для управления отображением DatePicker
+
+    var body: some View {
+        VStack(spacing: 24) {
+            HStack(spacing: 32) {
+                // Первая кнопка с числом дня в стиле других иконок
+                RescheduleButton(icon: "calendar", label: "Сегодня", action: {
+                    onDone(Date()) // Переносит на текущую дату (7 июня 2025)
+                }, showDay: true)
+
+                RescheduleButton(icon: "sunrise", label: "Завтра", action: {
+                    onDone(Calendar.current.date(byAdding: .day, value: 1, to: Date())) // Переносит на завтра (8 июня 2025)
+                }, showDay: false)
+
+                RescheduleButton(icon: "calendar", label: "Выбрать дату", action: {
+                    showDatePicker = true // Открывает DatePicker
+                }, showDay: false)
+            }
+            Divider()
+            Spacer()
+        }
+        .padding()
+        .presentationDetents([.fraction(0.4)])
+        .sheet(isPresented: $showDatePicker) {
+            VStack(spacing: 24) {
+                DatePicker("Выберите дату", selection: $pickedDate, displayedComponents: .date)
+                    .datePickerStyle(.wheel)
+                    .labelsHidden()
+                Button("Готово") {
+                    onDone(pickedDate) // Переносит задачу на выбранную дату
+                    showDatePicker = false
+                }
+                .font(.headline)
+                .foregroundColor(.blue)
+                .padding()
+            }
+            .presentationDetents([.medium])
+        }
+    }
+}
+
+// ... (Остальной код CalendarView остаётся без изменений) ...
+
+// ... (Остальной код CalendarView остаётся без изменений) ...
