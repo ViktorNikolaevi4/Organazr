@@ -16,71 +16,66 @@ struct TaskRowView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            HStack(spacing: 12) {
-                // Отступ для уровня вложенности
-                Spacer().frame(width: indentWidth)
+         VStack(alignment: .leading, spacing: 0) {
+             HStack(spacing: 12) {
+                 Spacer().frame(width: indentWidth)
 
-                // Чекбокс
-                Button { completeAction(task) }
-                label: {
-                    Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                        .foregroundColor(task.isCompleted ? .green : .primary)
-                }
-                .buttonStyle(.plain)
+                 // чекбокс
+                 Button { completeAction(task) }
+                 label: {
+                     Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
+                         .foregroundColor(task.isCompleted ? .green : .primary)
+                 }
+                 .buttonStyle(.plain)
 
-                // Заголовок и детали
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(task.title)
-                        .font(.body)
-                        .foregroundColor(task.isCompleted ? .gray : .primary)
-                    if !task.details.isEmpty {
-                        Text(task.details)
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .lineLimit(1)
-                    }
-                }
+                 // заголовок и детали
+                 VStack(alignment: .leading, spacing: 4) {
+                     Text(task.title)
+                         .font(.body)
+                         .foregroundColor(task.isCompleted ? .gray : .primary)
 
-                Spacer()
+                     if !task.details.isEmpty {
+                         Text(task.details)
+                             .font(.caption)
+                             .foregroundColor(.secondary)
+                             .lineLimit(1)
+                     }
+                 }
 
-                // Если есть подзадачи — показываем счётчик и кнопку-стрелку
-                if !task.subtasks.isEmpty {
-                    Text("\(task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }.count)")
-                        .foregroundColor(.secondary)
+                 Spacer()
 
-                    Button {
-                        withAnimation { isExpanded.toggle() }
-                    } label: {
-                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
-                            .foregroundColor(.secondary)
-                    }
-                    .buttonStyle(.plain)
-                }
+                 // считаем «живые» подзадачи
+                 let pendingCount = task.subtasks.filter { !$0.isCompleted && !$0.isNotDone }.count
 
-                // Флажок приоритета
-                if task.priority != .none {
-                    Image(systemName: "flag.fill")
-                        .foregroundColor(flagColor(for: task.priority))
-                }
-            }
-            .contentShape(Rectangle())
-            // Теперь по тапу на строку (в любом месте, кроме стрелки)
-            // всегда вызываем onTap и открываем TaskDetailSheet
-            .onTapGesture {
-                onTap(task)
-            }
-            // Свайп-действие для удаления
-            .swipeActions(edge: .trailing) {
-                Button(role: .destructive) {
-                    modelContext.delete(task)
-                } label: {
-                    Label("Удалить", systemImage: "trash")
-                }
-            }
-            .padding(.vertical, 8)
-        }
-    }
+                 // показываем счётчик и стрелку только если pendingCount > 0
+                 if pendingCount > 0 {
+                     Text("\(pendingCount)")
+                         .foregroundColor(.secondary)
+
+                     Button {
+                         withAnimation { isExpanded.toggle() }
+                     } label: {
+                         Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                             .foregroundColor(.secondary)
+                     }
+                     .buttonStyle(.plain)
+                 }
+
+                 // приоритет
+                 if task.priority != .none {
+                     Image(systemName: "flag.fill")
+                         .foregroundColor(flagColor(for: task.priority))
+                 }
+             }
+             .contentShape(Rectangle())
+             .onTapGesture { onTap(task) }
+             .swipeActions(edge: .trailing) {
+                 Button(role: .destructive) { modelContext.delete(task) }
+                 label: { Label("Удалить", systemImage: "trash") }
+             }
+             .padding(.vertical, 8)
+         }
+     }
 
     // Вспомогательный метод для цвета флага
     private func flagColor(for priority: Priority) -> Color {
