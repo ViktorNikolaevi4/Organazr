@@ -35,6 +35,9 @@ struct CalendarView: View {
     @State private var recentlyCompleted: TaskItem? = nil
     @State private var showUndo = false
     @State private var sheetDetent: PresentationDetent = .medium
+    @State private var taskToDelete: TaskItem? = nil
+    @State private var showDeleteConfirmation = false
+
 
     private let maxCalendarDepth = 5
 
@@ -98,6 +101,25 @@ struct CalendarView: View {
             }
             .navigationTitle(monthName(of: selectedDate).capitalized)
             .navigationBarTitleDisplayMode(.inline)
+            .confirmationDialog("Удалить задачу?", isPresented: $showDeleteConfirmation, titleVisibility: .visible) {
+                Button("Удалить", role: .destructive) {
+                    if let task = taskToDelete {
+                        modelContext.delete(task)
+                        do {
+                            try modelContext.save()
+                        } catch {
+                            print("Ошибка удаления: \(error)")
+                        }
+                    }
+                    taskToDelete = nil
+                }
+                Button("Отмена", role: .cancel) {
+                    taskToDelete = nil
+                }
+            } message: {
+                Text("Задача будет удалена без возможности восстановления.")
+            }
+
 
             // --------------------------------------
             // Лист редактирования уже созданной задачи
@@ -351,46 +373,55 @@ struct CalendarView: View {
     }
 
     private var taskListView: some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                // Невыполненные остаются как есть
-                if !pendingRows.isEmpty {
-                    Section(header: headerView(text: "Сегодня")) {
-                        ForEach(pendingRows, id: \.0.id) { pair in
-                            TaskRowView(
-                                task: pair.0,
-                                level: pair.1,
-                                completeAction: markCompleted,
-                                onTap: { selectedTask = $0 },
-                                isExpanded: Binding(
-                                    get: { expandedStates[pair.0.id] ?? false },
-                                    set: { expandedStates[pair.0.id] = $0 }
-                                )
+        List {
+            // Невыполненные
+            if !pendingRows.isEmpty {
+                Section(header: headerView(text: "Сегодня")) {
+                    ForEach(pendingRows, id: \.0.id) { pair in
+                        let task = pair.0
+                        TaskRowView(
+                            task: task,
+                            level: pair.1,
+                            completeAction: markCompleted,
+                            onTap: { selectedTask = $0 },
+                            isExpanded: Binding(
+                                get: { expandedStates[task.id] ?? false },
+                                set: { expandedStates[task.id] = $0 }
                             )
-                        }
+                        )
+                        // здесь свайпа больше нет
                     }
                 }
+            }
 
-                     if !allDoneForDate.isEmpty {
-                    Section(header: headerView(text: "Выполнено")) {
-                        ForEach(allDoneForDate, id: \.id) { task in
-                            HStack {
-                                Image(systemName: "checkmark.square.fill")
-                                    .foregroundColor(.gray)
-                                Text(task.title)
-                                    .foregroundColor(.secondary)
-                                Spacer()
+            // Выполненные
+            if !allDoneForDate.isEmpty {
+                Section(header: headerView(text: "Выполнено")) {
+                    ForEach(allDoneForDate, id: \.id) { task in
+                        HStack {
+                            Image(systemName: "checkmark.square.fill")
+                                .foregroundColor(.gray)
+                            Text(task.title)
+                                .foregroundColor(.secondary)
+                            Spacer()
+                        }
+                        .padding(.vertical, 8)
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                taskToDelete = task
+                                showDeleteConfirmation = true
+                            } label: {
+                                Label("Удалить", systemImage: "trash")
                             }
-                            .padding(.vertical, 8)
                         }
                     }
                 }
             }
-            .background(Color.white.cornerRadius(12))
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
         }
+        .listStyle(.insetGrouped)
     }
+
+
 
 
     /// Заголовок для секции («СЕГОДНЯ», «ВЫПОЛНЕНО» и т. п.)
