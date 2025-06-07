@@ -40,9 +40,14 @@ struct TaskDetailSheet: View {
                     }
                 }
                 .sheet(isPresented: $showMoreOptions) {
-                    MoreOptionsView(task: task)
-                        .presentationDetents([.fraction(0.75)])
-                        .presentationDragIndicator(.visible)
+                  MoreOptionsView(task: task) {
+                    // 1) закрываем меню опций…
+                    showMoreOptions = false
+                    // 2) …и сразу закрываем сам TaskDetailSheet
+                    onDismiss()
+                  }
+                  .presentationDetents([.fraction(0.75)])
+                  .presentationDragIndicator(.visible)
                 }
                 .photosPicker(isPresented: $showPhotoPicker, selection: $selectedPhotoItem, matching: .images)
                 .onChange(of: selectedPhotoItem) { newItem in

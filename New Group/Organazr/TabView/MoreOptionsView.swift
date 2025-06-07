@@ -29,6 +29,7 @@ struct MoreOptionsView: View {
     @State private var showDepthLimitAlert = false // Для алерта об ограничении вложенности
 
     private let maxDepthAllowed = 5 // Максимальная глубина вложенности
+    let onAddSubtask: () -> Void
 
     var body: some View {
         ZStack {
@@ -119,22 +120,28 @@ struct MoreOptionsView: View {
             }
             // Добавляем модальное окно для создания подзадачи
             .sheet(isPresented: $showAddSubtaskSheet) {
-                AddSubtaskSheet { title in
-                    let newSubtask = TaskItem(title: title, parentTask: task)
-                    modelContext.insert(newSubtask)
-                    task.refreshID = UUID() // Обновляем refreshID родительской задачи
-                    do {
-                        try modelContext.save()
-                        print("Контекст сохранен успешно. Подзадача: \(newSubtask.title), родитель: \(task.title)")
-                    } catch {
-                        print("Ошибка сохранения подзадачи: \(error)")
-                    }
-                    showAddSubtaskSheet = false
-                }
-                .presentationDetents([.fraction(0.4)])
-                .presentationDragIndicator(.visible)
-                .ignoresSafeArea(.keyboard, edges: .bottom)
+              AddSubtaskSheet { title in
+                // создаём подзадачу
+                let newSubtask = TaskItem(title: title, parentTask: task)
+                modelContext.insert(newSubtask)
+                task.refreshID = UUID()
+                try? modelContext.save()
+
+                // сначала убираем сам AddSubtaskSheet
+                showAddSubtaskSheet = false
+
+                // а теперь вызываем переданный коллбэк,
+                // который закроет меню и экран деталей
+                onAddSubtask()
+              } onAddSubtask: {
+                // Отмена — просто закрываем форму
+                showAddSubtaskSheet = false
+              }
+              .presentationDetents([.fraction(0.4)])
+              .presentationDragIndicator(.visible)
+              .ignoresSafeArea(.keyboard, edges: .bottom)
             }
+
             .alert("Ограничение вложенности", isPresented: $showDepthLimitAlert) {
                 Button("OK") { }
             } message: {
@@ -216,6 +223,7 @@ struct AddSubtaskSheet: View {
     @State private var title: String = ""
     @Environment(\.dismiss) private var dismiss
     let onAdd: (String) -> Void
+    let onAddSubtask: () -> Void
 
     var body: some View {
         NavigationStack {
@@ -247,6 +255,7 @@ struct AddSubtaskSheet: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Отмена") {
                         dismiss()
+                        onAddSubtask()
                     }
                 }
             }

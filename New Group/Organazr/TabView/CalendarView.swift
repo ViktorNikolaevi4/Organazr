@@ -40,6 +40,9 @@ struct CalendarView: View {
     @State private var showRescheduleSheet = false
     @State private var taskToReschedule: TaskItem? = nil
 
+    @State private var showMoreOptions  = false
+    @State private var showAddSubtask   = false
+
     private let maxCalendarDepth = 5
 
     // MARK: — Календарь (русский, неделя с понедельника)
@@ -169,6 +172,8 @@ struct CalendarView: View {
                         print("Ошибка сохранения новой календарной задачи: \(error)")
                     }
                     isAdding = false
+                    showAddSubtask   = false
+                    showMoreOptions  = false
                 }
                 .presentationDetents([.fraction(0.4)])
                 .presentationDragIndicator(.visible)
