@@ -399,8 +399,15 @@ struct CalendarView: View {
                 Section(header: headerView(text: "Выполнено")) {
                     ForEach(allDoneForDate, id: \.id) { task in
                         HStack {
-                            Image(systemName: "checkmark.square.fill")
-                                .foregroundColor(.gray)
+                            // чекбокс-кнопка для возвращения в «Сегодня»
+                            Button {
+                                unmarkCompleted(task)
+                            } label: {
+                                Image(systemName: "checkmark.square.fill")
+                                    .foregroundColor(.gray)
+                            }
+                            .buttonStyle(.plain)
+
                             Text(task.title)
                                 .foregroundColor(.secondary)
                             Spacer()
@@ -512,4 +519,13 @@ struct CalendarView: View {
         df.dateFormat = "yyyy"
         return df.string(from: date)
     }
+    private func unmarkCompleted(_ task: TaskItem) {
+        task.isCompleted = false
+        do {
+            try modelContext.save()
+        } catch {
+            print("Ошибка при сохранении: \(error)")
+        }
+    }
+
 }
