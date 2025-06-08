@@ -30,6 +30,7 @@ final class TaskItem: Identifiable {
     var parentTask: TaskItem? = nil
     @Relationship(deleteRule: .cascade, inverse: \TaskItem.parentTask)
     var subtasks: [TaskItem] = []
+    var isMatrixTask: Bool
 
     var dueDate: Date? // Добавляем поле для даты
     var refreshID: UUID = UUID()
@@ -44,7 +45,8 @@ final class TaskItem: Identifiable {
         imageData: Data? = nil,
         isNotDone: Bool = false,
         parentTask: TaskItem? = nil,
-        dueDate: Date? = nil // Добавляем параметр для даты
+        dueDate: Date? = nil, // Добавляем параметр для даты
+        isMatrixTask: Bool = false
     ) {
         self.title = title
         self.list = list
@@ -56,6 +58,7 @@ final class TaskItem: Identifiable {
         self.isNotDone = isNotDone
         self.parentTask = parentTask
         self.dueDate = dueDate
+        self.isMatrixTask = isMatrixTask
     }
 
     // Функция для вычисления глубины задачи (уровня вложенности)

@@ -270,8 +270,3 @@ struct TaskDetailSheet: View {
         }
     }
 }
-
-// Не забываем про AddSubtaskSheet и MoreOptionsView в вашем проекте!
-// Их реализацию вы уже приводили выше и можете оставить без изменений.
-
-

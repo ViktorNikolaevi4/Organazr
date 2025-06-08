@@ -38,7 +38,7 @@ struct MainTabView: View {
                 .tag(3)
 
             // 5. Профиль
-            ProfileView()
+            MatrixView()
                 .tabItem {
                     Image(systemName: "die.face.4")
                     Text("Матрица")
