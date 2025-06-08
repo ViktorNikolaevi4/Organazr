@@ -384,12 +384,14 @@ struct CalendarView: View {
     // ----------------------------------------
     // Список задач под календарём
     // ----------------------------------------
-    private var pendingRows: [(task: TaskItem, level: Int)] {
-        calendarAllRows.filter { !$0.0.isCompleted }
+    private var pendingRows: [(TaskItem, Int)] {
+        calendarAllRows
+            .filter { !$0.0.isCompleted && !$0.0.isNotDone }
     }
 
-    private var doneRows: [(task: TaskItem, level: Int)] {
-        calendarAllRows.filter { $0.0.isCompleted }
+    private var doneRows: [(TaskItem, Int)] {
+        calendarAllRows
+            .filter { $0.0.isCompleted && !$0.0.isNotDone }
     }
 
     private var taskListView: some View {
@@ -501,6 +503,7 @@ struct CalendarView: View {
             guard let d = task.dueDate else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDate)
                 && !task.isCompleted
+                && !task.isNotDone
         }
     }
 
@@ -510,6 +513,7 @@ struct CalendarView: View {
             guard let d = task.dueDate else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDate)
                 && task.isCompleted
+                && !task.isNotDone
         }
     }
 
