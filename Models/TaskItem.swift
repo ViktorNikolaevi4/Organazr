@@ -5,6 +5,7 @@ enum Priority: String, CaseIterable, Sendable, Codable {
     case high, medium, low, none
 }
 
+
 @Model
 final class TaskList: Identifiable {
     var id: UUID = UUID()

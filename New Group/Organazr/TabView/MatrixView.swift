@@ -65,7 +65,8 @@ struct MatrixView: View {
                     .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isAdding) {
-                AddTaskCategorySheet { category, title, priority in
+                AddTaskCategorySheet { title, priority in
+                    // Здесь у нас нет категории, поэтому просто создаём задачу с выбранным приоритетом
                     let newTask = TaskItem(
                         title: title,
                         list: nil,
@@ -77,15 +78,12 @@ struct MatrixView: View {
                         isNotDone: false,
                         parentTask: nil,
                         dueDate: selectedDate,
-                        isMatrixTask: true // Устанавливаем, что задача из матрицы
+                        isMatrixTask: true
                     )
-                    newTask.dueDate = assignDueDate(for: category)
+                    // Если нужно, можете сами вычислить дату или что угодно
+                    newTask.dueDate = selectedDate
                     modelContext.insert(newTask)
-                    do {
-                        try modelContext.save()
-                    } catch {
-                        print("Ошибка сохранения: \(error)")
-                    }
+                    try? modelContext.save()
                     isAdding = false
                 }
                 .presentationDetents([.fraction(0.4)])
@@ -185,92 +183,109 @@ struct MatrixDetailView: View {
     }
 }
 
+
+import SwiftUI
+
 struct AddTaskCategorySheet: View {
-    var onAdd: (MatrixView.EisenhowerCategory, String, Priority) -> Void
+    /// Единственная точка входа для создания задачи
+    var onAddTask: (String, Priority) -> Void
+
     @State private var title = ""
-    @State private var selectedCategory: MatrixView.EisenhowerCategory = .urgentImportant
-    @State private var selectedPriority: Priority = .none
+    @State private var selectedPriority: Priority = .high  // по-умолчанию
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 8) {
+            VStack(spacing: 16) {
+                // 1) Поле для ввода названия
                 TextField("Что бы вы хотели сделать?", text: $title)
                     .font(.subheadline)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
 
-                Picker("Категория", selection: $selectedCategory) {
-                    ForEach(MatrixView.EisenhowerCategory.allCases) { category in
-                        Text(category.rawValue)
-                            .font(.subheadline)
-                            .tag(category)
-                    }
-                }
-                .pickerStyle(MenuPickerStyle())
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(8)
-
-                HStack(spacing: 16) {
-                    Button {
-                        selectedPriority = .high
-                    } label: {
-                        Image(systemName: "flag.fill")
-                            .font(.caption)
-                            .foregroundColor(selectedPriority == .high ? .red : .gray)
-                    }
-                    Button {
-                        selectedPriority = .medium
-                    } label: {
-                        Image(systemName: "flag.fill")
-                            .font(.caption)
-                            .foregroundColor(selectedPriority == .medium ? .yellow : .gray)
-                    }
-                    Button {
-                        selectedPriority = .low
-                    } label: {
-                        Image(systemName: "flag.fill")
-                            .font(.caption)
-                            .foregroundColor(selectedPriority == .low ? .blue : .gray)
-                    }
-                    Button {
-                        selectedPriority = .none
-                    } label: {
-                        Image(systemName: "flag.fill")
-                            .font(.caption)
-                            .foregroundColor(selectedPriority == .none ? .gray : .gray)
-                    }
+                // 2) Меню выбора приоритета с фиксированным порядком
+                HStack {
                     Spacer()
-                    Button("Добавить") {
-                        if !title.isEmpty {
-                            onAdd(selectedCategory, title, selectedPriority)
-                            dismiss()
+                    Menu {
+                        // Точно в этом порядке
+                        ForEach([Priority.none,
+                                 Priority.low,
+                                 Priority.medium,
+                                 Priority.high], id: \.self) { p in
+                            Button {
+                                selectedPriority = p
+                            } label: {
+                                Text(p.title)
+                                    .foregroundColor(p.color)
+                            }
                         }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text(selectedPriority.title)
+                                .foregroundColor(selectedPriority.color)
+                            Image(systemName: "chevron.down")
+                                .foregroundColor(selectedPriority.color)
+                        }
+                        .padding(.horizontal)
+                        .padding(.vertical, 10)
+                        .background(Color(.systemGray6))
+                        .cornerRadius(8)
                     }
-                    .disabled(title.isEmpty)
-                    .font(.subheadline)
-                    .padding()
-                    .background(title.isEmpty ? Color.gray : Color.specialBlue)
-                    .foregroundColor(.white)
-                    .cornerRadius(8)
                 }
-                .padding(.horizontal)
+
+                // 3) Кнопка «Добавить»
+                Button {
+                    guard !title.isEmpty else { return }
+                    onAddTask(title, selectedPriority)
+                    dismiss()
+                } label: {
+                    Text("Добавить")
+                        .frame(maxWidth: .infinity)
+                        .padding()
+                        .background(title.isEmpty ? Color.gray : Color.specialBlue)
+                        .foregroundColor(.white)
+                        .cornerRadius(8)
+                }
+                .disabled(title.isEmpty)
 
                 Spacer()
             }
             .padding()
             .navigationTitle("Новая задача")
-            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Отмена") {
-                        dismiss()
-                    }
-                    .font(.subheadline)
+                    Button("Отмена") { dismiss() }
                 }
             }
         }
     }
 }
+
+
+
+extension Priority {
+    /// Человекочитаемое название
+    var title: String {
+        switch self {
+        case .high:   return "Срочно и важно"
+        case .medium: return "Не срочно, но важно"
+        case .low:    return "Срочно, но не важно"
+        case .none:   return "Не срочно и не важно"
+        }
+    }
+
+    /// Цвет для каждого приоритета
+    var color: Color {
+        switch self {
+        case .high:   return .red
+        case .medium: return .blue
+        case .low:    return .yellow
+        case .none:   return .gray
+        }
+    }
+}
+
+//extension Priority: Identifiable {
+//    var id: String { rawValue }
+//}
