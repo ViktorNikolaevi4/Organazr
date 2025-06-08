@@ -332,6 +332,7 @@ struct CalendarView: View {
             guard let d = task.dueDate else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDate)
                 && task.parentTask == nil
+                && !task.isMatrixTask     // ← вот здесь
         }
     }
 
@@ -497,25 +498,26 @@ struct CalendarView: View {
         }
     }
 
-    // Список «невыполненных» задач для выбранной даты
     private var tasksForSelectedDate: [TaskItem] {
         allTasks.filter { task in
             guard let d = task.dueDate else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDate)
                 && !task.isCompleted
                 && !task.isNotDone
+                && !task.isMatrixTask      // <- здесь!
         }
     }
 
-    // Список «выполненных» задач для выбранной даты
     private var completedForSelectedDate: [TaskItem] {
         allTasks.filter { task in
             guard let d = task.dueDate else { return false }
             return calendar.isDate(d, inSameDayAs: selectedDate)
                 && task.isCompleted
                 && !task.isNotDone
+                && !task.isMatrixTask      // <- и здесь!
         }
     }
+
 
     // Построение массива из 42 дат (6×7) для календаря
     private func makeDaysForCalendarGrid(for referenceDate: Date) -> [Date] {
