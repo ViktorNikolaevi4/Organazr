@@ -154,65 +154,131 @@ struct MatrixView: View {
     }
 }
 
+// MARK: –– MatrixDetailView.swift
+
 struct MatrixDetailView: View {
     let category: MatrixView.EisenhowerCategory
     let tasks: [TaskItem]
 
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
+    // для показа шита добавления
+    @State private var isAdding = false
+
     var body: some View {
-        NavigationView {
+        ZStack(alignment: .bottomTrailing) {
+            // 1) Список задач
             List {
                 ForEach(tasks) { task in
                     Text(task.title)
                         .font(.subheadline)
                 }
             }
+            .listStyle(.insetGrouped)
             .navigationTitle(category.rawValue)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // только кнопка «Назад»
                 ToolbarItem(placement: .topBarLeading) {
-                    Button("Назад") {
-                        dismiss()
-                    }
-                    .font(.subheadline)
+                    Button("Назад") { dismiss() }
                 }
             }
+
+            // 2) Круглая кнопка «+»
+            Button {
+                isAdding = true
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 48))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .blue)
+                    .shadow(radius: 4, y: 2)
+            }
+            .padding(.trailing, 24)
+            .padding(.bottom, 40)
         }
-        .ignoresSafeArea(.all)
+        // 3) Лист для создания новой задачи в этой квадрант-ячейке
+        .sheet(isPresented: $isAdding) {
+            AddTaskCategorySheet(
+                initialPriority: priorityFor(category: category),
+                onAddTask: { title, chosenPriority in
+                    let newTask = TaskItem(
+                        title: title,
+                        list: nil,
+                        details: "",
+                        isCompleted: false,
+                        priority: chosenPriority,
+                        isPinned: false,
+                        imageData: nil,
+                        isNotDone: false,
+                        parentTask: nil,
+                        dueDate: Date(),
+                        isMatrixTask: true
+                    )
+                    modelContext.insert(newTask)
+                    try? modelContext.save()
+                    isAdding = false
+                }
+            )
+            .presentationDetents([.fraction(0.4)])
+            .presentationDragIndicator(.visible)
+        }
+    }
+
+    /// Маппинг квадранта ←→ приоритет
+    private func priorityFor(category: MatrixView.EisenhowerCategory) -> Priority {
+        switch category {
+        case .urgentImportant:      return .high
+        case .notUrgentImportant:   return .medium
+        case .urgentNotImportant:   return .low
+        case .notUrgentNotImportant:return .none
+        }
     }
 }
 
 
-import SwiftUI
+
+
+// MARK: –– AddTaskCategorySheet.swift
 
 struct AddTaskCategorySheet: View {
-    /// Единственная точка входа для создания задачи
+    /// начальный приоритет (чтобы меню сразу подсветило)
+    let initialPriority: Priority
+
+    /// коллбэк, возвращает название + выбранный приоритет
     var onAddTask: (String, Priority) -> Void
 
     @State private var title = ""
-    @State private var selectedPriority: Priority = .high  // по-умолчанию
+    @State private var selectedPriority: Priority
     @Environment(\.dismiss) private var dismiss
+
+    /// свой собственный инициализатор, чтобы покинуть `selectedPriority` в нужном значении
+    init(
+        initialPriority: Priority = .high,
+        onAddTask: @escaping (String, Priority) -> Void
+    ) {
+        self.initialPriority = initialPriority
+        self.onAddTask = onAddTask
+        // инициализируем @State из аргумента
+        _selectedPriority = State(initialValue: initialPriority)
+    }
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 16) {
-                // 1) Поле для ввода названия
+                // 1) Название задачи
                 TextField("Что бы вы хотели сделать?", text: $title)
                     .font(.subheadline)
                     .padding()
                     .background(Color(.systemGray6))
                     .cornerRadius(8)
 
-                // 2) Меню выбора приоритета с фиксированным порядком
+                // 2) Меню выбора приоритета
                 HStack {
                     Spacer()
                     Menu {
-                        // Точно в этом порядке
-                        ForEach([Priority.none,
-                                 Priority.low,
-                                 Priority.medium,
-                                 Priority.high], id: \.self) { p in
+                        ForEach([Priority.high, .medium, .low, .none], id: \.self) { p in
                             Button {
                                 selectedPriority = p
                             } label: {
@@ -235,11 +301,11 @@ struct AddTaskCategorySheet: View {
                 }
 
                 // 3) Кнопка «Добавить»
-                Button {
+                Button(action: {
                     guard !title.isEmpty else { return }
                     onAddTask(title, selectedPriority)
                     dismiss()
-                } label: {
+                }) {
                     Text("Добавить")
                         .frame(maxWidth: .infinity)
                         .padding()
@@ -253,6 +319,7 @@ struct AddTaskCategorySheet: View {
             }
             .padding()
             .navigationTitle("Новая задача")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Отмена") { dismiss() }
@@ -261,6 +328,7 @@ struct AddTaskCategorySheet: View {
         }
     }
 }
+
 
 
 
