@@ -157,85 +157,108 @@ struct MatrixView: View {
 // MARK: –– MatrixDetailView.swift
 
 struct MatrixDetailView: View {
-    let category: MatrixView.EisenhowerCategory
-    let tasks: [TaskItem]
+  let category: MatrixView.EisenhowerCategory
+  let tasks: [TaskItem]
 
-    @Environment(\.modelContext) private var modelContext
-    @Environment(\.dismiss) private var dismiss
+  @Environment(\.modelContext) private var modelContext
+  @Environment(\.dismiss) private var dismiss
 
-    // для показа шита добавления
-    @State private var isAdding = false
+  // для открытия редактора задачи (TaskDetailSheet)
+  @State private var selectedTask: TaskItem? = nil
+  @State private var sheetDetent: PresentationDetent = .medium
 
-    var body: some View {
-        ZStack(alignment: .bottomTrailing) {
-            // 1) Список задач
-            List {
-                ForEach(tasks) { task in
-                    Text(task.title)
-                        .font(.subheadline)
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle(category.rawValue)
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                // только кнопка «Назад»
-                ToolbarItem(placement: .topBarLeading) {
-                    Button("Назад") { dismiss() }
-                }
-            }
+  // для показа шита добавления новой подзадачи
+  @State private var showAddSubtask = false
+  @State private var parentForNew: TaskItem? = nil
 
-            // 2) Круглая кнопка «+»
+  var body: some View {
+    ZStack(alignment: .bottomTrailing) {
+      List {
+        ForEach(tasks) { task in
+          // здесь мы переиспользуем ваш TaskRowView из HomeView
+          TaskRowView(
+            task: task,
+            level: 0,                     // глубина = 0, т.к. это корни
+            completeAction: markCompleted,
+            onTap: { tapped in
+              selectedTask = tapped
+            },
+            isExpanded: .constant(false)  // или ваша логика разворачивания
+          )
+          .swipeActions(edge: .trailing) {
             Button {
-                isAdding = true
+              parentForNew = task
+              showAddSubtask = true
             } label: {
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 48))
-                    .symbolRenderingMode(.palette)
-                    .foregroundStyle(.white, .blue)
-                    .shadow(radius: 4, y: 2)
+              Label("Подзадача", systemImage: "plus")
             }
-            .padding(.trailing, 24)
-            .padding(.bottom, 40)
+            .tint(.green)
+          }
         }
-        // 3) Лист для создания новой задачи в этой квадрант-ячейке
-        .sheet(isPresented: $isAdding) {
-            AddTaskCategorySheet(
-                initialPriority: priorityFor(category: category),
-                onAddTask: { title, chosenPriority in
-                    let newTask = TaskItem(
-                        title: title,
-                        list: nil,
-                        details: "",
-                        isCompleted: false,
-                        priority: chosenPriority,
-                        isPinned: false,
-                        imageData: nil,
-                        isNotDone: false,
-                        parentTask: nil,
-                        dueDate: Date(),
-                        isMatrixTask: true
-                    )
-                    modelContext.insert(newTask)
-                    try? modelContext.save()
-                    isAdding = false
-                }
-            )
-            .presentationDetents([.fraction(0.4)])
-            .presentationDragIndicator(.visible)
+      }
+      .listStyle(.insetGrouped)
+      .navigationTitle(category.rawValue)
+      .navigationBarTitleDisplayMode(.inline)
+      .toolbar {
+        ToolbarItem(placement: .topBarLeading) {
+          Button("Назад") { dismiss() }
         }
-    }
+      }
 
-    /// Маппинг квадранта ←→ приоритет
-    private func priorityFor(category: MatrixView.EisenhowerCategory) -> Priority {
-        switch category {
-        case .urgentImportant:      return .high
-        case .notUrgentImportant:   return .medium
-        case .urgentNotImportant:   return .low
-        case .notUrgentNotImportant:return .none
-        }
+      // Плавающая кнопка «+», чтобы добавить новую корневую задачу именно в этот квадрант
+      Button {
+        parentForNew = nil
+        showAddSubtask = true
+      } label: {
+        Image(systemName: "plus.circle.fill")
+          .font(.system(size: 48))
+          .symbolRenderingMode(.palette)
+          .foregroundStyle(.white, .blue)
+          .shadow(radius: 4, y: 2)
+      }
+      .padding(.trailing, 24)
+      .padding(.bottom, 40)
     }
+    // редактирование существующей задачи
+    .sheet(item: $selectedTask) { task in
+      TaskDetailSheet(task: task) {
+        selectedTask = nil
+        sheetDetent = .medium
+      }
+      .presentationDetents([.medium, .large], selection: $sheetDetent)
+      .presentationDragIndicator(.visible)
+    }
+    // создание новой (или под-)задачи
+    .sheet(isPresented: $showAddSubtask) {
+      AddTaskSheet { title, priority in
+        let newTask = TaskItem(
+          title: title,
+          list: nil,
+          details: "",
+          isCompleted: false,
+          priority: priority,
+          isPinned: false,
+          imageData: nil,
+          isNotDone: false,
+          parentTask: parentForNew,
+          dueDate: Date(),
+          isMatrixTask: true
+        )
+        modelContext.insert(newTask)
+        try? modelContext.save()
+        showAddSubtask = false
+      }
+      .presentationDetents([.fraction(0.4)])
+      .presentationDragIndicator(.visible)
+    }
+  }
+
+  private func markCompleted(_ task: TaskItem) {
+    task.isCompleted = true
+    try? modelContext.save()
+  }
 }
+
 
 
 
