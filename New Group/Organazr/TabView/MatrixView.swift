@@ -285,14 +285,14 @@ struct MatrixDetailView: View {
                                 onTap: { selectedTask = $0 },
                                 isExpanded: .constant(false) // без стрелки
                             )
-                            .swipeActions {
-                                Button(role: .destructive) {
-                                    modelContext.delete(task)
-                                    try? modelContext.save()
-                                } label: {
-                                    Label("Удалить", systemImage: "trash")
-                                }
-                            }
+//                            .swipeActions {
+//                                Button(role: .destructive) {
+//                                    modelContext.delete(task)
+//                                    try? modelContext.save()
+//                                } label: {
+//                                    Label("Удалить", systemImage: "trash")
+//                                }
+//                            }
                         }
                     }
                 }
