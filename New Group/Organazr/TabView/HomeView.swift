@@ -24,7 +24,7 @@ struct TaskRowView: View {
                  Button { completeAction(task) }
                  label: {
                      Image(systemName: task.isCompleted ? "checkmark.square.fill" : "square")
-                         .foregroundColor(task.isCompleted ? .green : .primary)
+                         .foregroundColor(task.isCompleted ? .secondary : .primary)
                  }
                  .buttonStyle(.plain)
 

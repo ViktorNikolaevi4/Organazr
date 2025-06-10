@@ -154,11 +154,6 @@ struct MatrixView: View {
     }
 }
 
-// MARK: –– MatrixDetailView.swift
-
-
-import SwiftUI
-import SwiftData
 
 struct MatrixDetailView: View {
     let category: MatrixView.EisenhowerCategory
@@ -248,7 +243,7 @@ struct MatrixDetailView: View {
                             TaskRowView(
                                 task: row.task,
                                 level: row.level,
-                                completeAction: { _ in },
+                                completeAction: unmarkCompleted,   // ← возвращаем задачу
                                 onTap: { selectedTask = $0 },
                                 isExpanded: .constant(false)
                             )
@@ -327,15 +322,11 @@ struct MatrixDetailView: View {
         task.isCompleted = true
         try? modelContext.save()
     }
+    private func unmarkCompleted(_ task: TaskItem) {
+        task.isCompleted = false
+        try? modelContext.save()
+    }
 }
-
-
-
-
-
-
-
-// MARK: –– AddTaskCategorySheet.swift
 
 struct AddTaskCategorySheet: View {
     /// начальный приоритет (чтобы меню сразу подсветило)
