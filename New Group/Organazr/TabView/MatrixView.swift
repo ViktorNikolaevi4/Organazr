@@ -30,13 +30,13 @@ struct MatrixView: View {
                         Spacer().frame(height: 8)
                         VStack(spacing: 8) {
                             HStack(spacing: 16) {
-                                matrixCell(for: .urgentImportant, color: .red, availableHeight: geometry.size.height)
-                                matrixCell(for: .notUrgentImportant, color: .blue, availableHeight: geometry.size.height)
-                            }
+                                        matrixCell(for: .urgentImportant,   color: .red,    availableHeight: geometry.size.height)
+                                       matrixCell(for: .notUrgentImportant, color: .yellow, availableHeight: geometry.size.height) // ← было .blue
+                                   }
                             HStack(spacing: 16) {
-                                matrixCell(for: .urgentNotImportant, color: .yellow, availableHeight: geometry.size.height)
-                                matrixCell(for: .notUrgentNotImportant, color: .gray, availableHeight: geometry.size.height)
-                            }
+                                 matrixCell(for: .urgentNotImportant,    color: .blue,  availableHeight: geometry.size.height) // ← было .yellow
+                                 matrixCell(for: .notUrgentNotImportant, color: .gray,  availableHeight: geometry.size.height)
+                             }
                         }
                         .frame(maxHeight: geometry.size.height * 0.9)
 
@@ -171,6 +171,9 @@ struct MatrixDetailView: View {
   @State private var showAddSubtask = false
   @State private var parentForNew: TaskItem? = nil
 
+ //   @State private var isAdding = false
+    @State private var selectedDate: Date = Date()
+
   var body: some View {
     ZStack(alignment: .bottomTrailing) {
       List {
@@ -207,7 +210,7 @@ struct MatrixDetailView: View {
 
       // Плавающая кнопка «+», чтобы добавить новую корневую задачу именно в этот квадрант
       Button {
-        parentForNew = nil
+    //    parentForNew = nil
         showAddSubtask = true
       } label: {
         Image(systemName: "plus.circle.fill")
@@ -230,24 +233,27 @@ struct MatrixDetailView: View {
     }
     // создание новой (или под-)задачи
     .sheet(isPresented: $showAddSubtask) {
-      AddTaskSheet { title, priority in
-        let newTask = TaskItem(
-          title: title,
-          list: nil,
-          details: "",
-          isCompleted: false,
-          priority: priority,
-          isPinned: false,
-          imageData: nil,
-          isNotDone: false,
-          parentTask: parentForNew,
-          dueDate: Date(),
-          isMatrixTask: true
-        )
-        modelContext.insert(newTask)
-        try? modelContext.save()
-        showAddSubtask = false
-      }
+        AddTaskCategorySheet { title, priority in
+            // Здесь у нас нет категории, поэтому просто создаём задачу с выбранным приоритетом
+            let newTask = TaskItem(
+                title: title,
+                list: nil,
+                details: "",
+                isCompleted: false,
+                priority: priority,
+                isPinned: false,
+                imageData: nil,
+                isNotDone: false,
+                parentTask: nil,
+                dueDate: selectedDate,
+                isMatrixTask: true
+            )
+            // Если нужно, можете сами вычислить дату или что угодно
+            newTask.dueDate = selectedDate
+            modelContext.insert(newTask)
+            try? modelContext.save()
+            showAddSubtask = false
+        }
       .presentationDetents([.fraction(0.4)])
       .presentationDragIndicator(.visible)
     }
@@ -370,8 +376,8 @@ extension Priority {
     var color: Color {
         switch self {
         case .high:   return .red
-        case .medium: return .blue
-        case .low:    return .yellow
+        case .medium: return .yellow
+        case .low:    return .blue
         case .none:   return .gray
         }
     }
