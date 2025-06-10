@@ -200,8 +200,45 @@ struct MatrixDetailView: View {
         rows.filter { !$0.task.isCompleted }
     }
 
-    private var doneRows: [(task: TaskItem, level: Int)] {
-        rows.filter { $0.task.isCompleted }
+     private var doneRows: [(task: TaskItem, level: Int)] {
+        var result: [(TaskItem, Int)] = []
+        // Проходим по всем корневым задачам (parent == nil)
+        for root in tasks.filter({ $0.parentTask == nil }) {
+             traverseDone(task: root, level: 0, into: &result)
+         }
+        return result
+     }
+
+     private func traverseDone(
+         task: TaskItem,
+         level: Int,
+         into array: inout [(TaskItem, Int)]
+     ) {
+         // если эта задача завершена — добавляем её
+         if task.isCompleted {
+             array.append((task, level))
+         }
+         // всегда идём дальше по всем подзадачам
+         for sub in task.subtasks {
+             traverseDone(task: sub, level: level + 1, into: &array)
+         }
+     }
+    private var flatDoneTasks: [TaskItem] {
+        // берём из `tasks` только завершённые (включая корни и подзадачи)
+        func collectDone(_ task: TaskItem, into array: inout [TaskItem]) {
+            if task.isCompleted {
+                array.append(task)
+            }
+            for sub in task.subtasks {
+                collectDone(sub, into: &array)
+            }
+        }
+
+        var result: [TaskItem] = []
+        for root in tasks.filter({ $0.parentTask == nil }) {
+            collectDone(root, into: &result)
+        }
+        return result
     }
 
     // MARK: –– UI
@@ -237,19 +274,20 @@ struct MatrixDetailView: View {
                 }
 
                 // ——— Выполнено ———
-                if !doneRows.isEmpty {
+                let done = flatDoneTasks
+                if !done.isEmpty {
                     Section(header: Text("Выполнено")) {
-                        ForEach(doneRows, id: \.task.id) { row in
+                        ForEach(done) { task in
                             TaskRowView(
-                                task: row.task,
-                                level: row.level,
-                                completeAction: unmarkCompleted,   // ← возвращаем задачу
+                                task: task,
+                                level: 0,                    // все на одном уровне
+                                completeAction: unmarkCompleted,
                                 onTap: { selectedTask = $0 },
-                                isExpanded: .constant(false)
+                                isExpanded: .constant(false) // без стрелки
                             )
                             .swipeActions {
                                 Button(role: .destructive) {
-                                    modelContext.delete(row.task)
+                                    modelContext.delete(task)
                                     try? modelContext.save()
                                 } label: {
                                     Label("Удалить", systemImage: "trash")
@@ -318,14 +356,31 @@ struct MatrixDetailView: View {
 
     // MARK: –– Actions
 
+    /// Помечает задачу и все её подзадачи выполненными
     private func markCompleted(_ task: TaskItem) {
-        task.isCompleted = true
+        func cascadeComplete(_ t: TaskItem) {
+            t.isCompleted = true
+            // рекурсивно для каждого прямого потомка
+            for sub in t.subtasks {
+                cascadeComplete(sub)
+            }
+        }
+        cascadeComplete(task)
         try? modelContext.save()
     }
+
+    /// Снимает отметку completed с этой задачи и со всех её родителей
     private func unmarkCompleted(_ task: TaskItem) {
-        task.isCompleted = false
+        // рекурсивно идём вверх по дереву
+        func cascadeUndone(_ t: TaskItem?) {
+            guard let t = t, t.isCompleted else { return }
+            t.isCompleted = false
+            cascadeUndone(t.parentTask)
+        }
+        cascadeUndone(task)
         try? modelContext.save()
     }
+
 }
 
 struct AddTaskCategorySheet: View {
