@@ -156,114 +156,180 @@ struct MatrixView: View {
 
 // MARK: –– MatrixDetailView.swift
 
+
+import SwiftUI
+import SwiftData
+
 struct MatrixDetailView: View {
-  let category: MatrixView.EisenhowerCategory
-  let tasks: [TaskItem]
+    let category: MatrixView.EisenhowerCategory
+    let tasks: [TaskItem]
 
-  @Environment(\.modelContext) private var modelContext
-  @Environment(\.dismiss) private var dismiss
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
 
-  // для открытия редактора задачи (TaskDetailSheet)
-  @State private var selectedTask: TaskItem? = nil
-  @State private var sheetDetent: PresentationDetent = .medium
+    // редактирование
+    @State private var selectedTask: TaskItem? = nil
+    @State private var sheetDetent: PresentationDetent = .medium
 
-  // для показа шита добавления новой подзадачи
-  @State private var showAddSubtask = false
-  @State private var parentForNew: TaskItem? = nil
-
- //   @State private var isAdding = false
+    // добавление подзадачи
+    @State private var showAddSubtask = false
+    @State private var parentForNew: TaskItem? = nil
     @State private var selectedDate: Date = Date()
 
-  var body: some View {
-    ZStack(alignment: .bottomTrailing) {
-      List {
-        ForEach(tasks) { task in
-          // здесь мы переиспользуем ваш TaskRowView из HomeView
-          TaskRowView(
-            task: task,
-            level: 0,                     // глубина = 0, т.к. это корни
-            completeAction: markCompleted,
-            onTap: { tapped in
-              selectedTask = tapped
-            },
-            isExpanded: .constant(false)  // или ваша логика разворачивания
-          )
-          .swipeActions(edge: .trailing) {
-            Button {
-              parentForNew = task
-              showAddSubtask = true
-            } label: {
-              Label("Подзадача", systemImage: "plus")
+    // разворачивание
+    @State private var expandedStates: [UUID: Bool] = [:]
+
+    // MARK: –– Формируем плоский список
+
+    private var rows: [(task: TaskItem, level: Int)] {
+        var result: [(TaskItem, Int)] = []
+        for task in tasks.filter({ $0.parentTask == nil }) {
+            flatten(task: task, level: 0, into: &result)
+        }
+        return result
+    }
+
+    private func flatten(
+        task: TaskItem,
+        level: Int,
+        into array: inout [(TaskItem, Int)]
+    ) {
+        array.append((task, level))
+        guard expandedStates[task.id] == true else { return }
+        for sub in task.subtasks {
+            flatten(task: sub, level: level + 1, into: &array)
+        }
+    }
+
+    private var pendingRows: [(task: TaskItem, level: Int)] {
+        rows.filter { !$0.task.isCompleted }
+    }
+
+    private var doneRows: [(task: TaskItem, level: Int)] {
+        rows.filter { $0.task.isCompleted }
+    }
+
+    // MARK: –– UI
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            List {
+                // ——— Открытые ———
+                if !pendingRows.isEmpty {
+                    Section(header: Text("Открытые")) {
+                        ForEach(pendingRows, id: \.task.id) { row in
+                            TaskRowView(
+                                task: row.task,
+                                level: row.level,
+                                completeAction: markCompleted,
+                                onTap: { selectedTask = $0 },
+                                isExpanded: Binding(
+                                    get: { expandedStates[row.task.id] ?? false },
+                                    set: { expandedStates[row.task.id] = $0 }
+                                )
+                            )
+                            .swipeActions(edge: .trailing) {
+                                Button {
+                                    parentForNew = row.task
+                                    showAddSubtask = true
+                                } label: {
+                                    Label("Подзадача", systemImage: "plus")
+                                }
+                                .tint(.green)
+                            }
+                        }
+                    }
+                }
+
+                // ——— Выполнено ———
+                if !doneRows.isEmpty {
+                    Section(header: Text("Выполнено")) {
+                        ForEach(doneRows, id: \.task.id) { row in
+                            TaskRowView(
+                                task: row.task,
+                                level: row.level,
+                                completeAction: { _ in },
+                                onTap: { selectedTask = $0 },
+                                isExpanded: .constant(false)
+                            )
+                            .swipeActions {
+                                Button(role: .destructive) {
+                                    modelContext.delete(row.task)
+                                    try? modelContext.save()
+                                } label: {
+                                    Label("Удалить", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                }
             }
-            .tint(.green)
-          }
-        }
-      }
-      .listStyle(.insetGrouped)
-      .navigationTitle(category.rawValue)
-      .navigationBarTitleDisplayMode(.inline)
-      .toolbar {
-        ToolbarItem(placement: .topBarLeading) {
-          Button("Назад") { dismiss() }
-        }
-      }
+            .listStyle(.insetGrouped)
 
-      // Плавающая кнопка «+», чтобы добавить новую корневую задачу именно в этот квадрант
-      Button {
-    //    parentForNew = nil
-        showAddSubtask = true
-      } label: {
-        Image(systemName: "plus.circle.fill")
-          .font(.system(size: 48))
-          .symbolRenderingMode(.palette)
-          .foregroundStyle(.white, .blue)
-          .shadow(radius: 4, y: 2)
-      }
-      .padding(.trailing, 24)
-      .padding(.bottom, 40)
-    }
-    // редактирование существующей задачи
-    .sheet(item: $selectedTask) { task in
-      TaskDetailSheet(task: task) {
-        selectedTask = nil
-        sheetDetent = .medium
-      }
-      .presentationDetents([.medium, .large], selection: $sheetDetent)
-      .presentationDragIndicator(.visible)
-    }
-    // создание новой (или под-)задачи
-    .sheet(isPresented: $showAddSubtask) {
-        AddTaskCategorySheet { title, priority in
-            // Здесь у нас нет категории, поэтому просто создаём задачу с выбранным приоритетом
-            let newTask = TaskItem(
-                title: title,
-                list: nil,
-                details: "",
-                isCompleted: false,
-                priority: priority,
-                isPinned: false,
-                imageData: nil,
-                isNotDone: false,
-                parentTask: nil,
-                dueDate: selectedDate,
-                isMatrixTask: true
-            )
-            // Если нужно, можете сами вычислить дату или что угодно
-            newTask.dueDate = selectedDate
-            modelContext.insert(newTask)
-            try? modelContext.save()
-            showAddSubtask = false
+            // плавающий «+»
+            Button {
+                parentForNew = nil
+                showAddSubtask = true
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 48))
+                    .symbolRenderingMode(.palette)
+                    .foregroundStyle(.white, .blue)
+                    .shadow(radius: 4, y: 2)
+            }
+            .padding(.trailing, 24)
+            .padding(.bottom, 40)
         }
-      .presentationDetents([.fraction(0.4)])
-      .presentationDragIndicator(.visible)
+        .navigationTitle(category.rawValue)
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .topBarLeading) {
+                Button("Назад", action: { dismiss() })
+            }
+        }
+        // редактирование
+        .sheet(item: $selectedTask) { task in
+            TaskDetailSheet(task: task) {
+                selectedTask = nil
+                sheetDetent = .medium
+            }
+            .presentationDetents([.medium, .large], selection: $sheetDetent)
+            .presentationDragIndicator(.visible)
+        }
+        // добавление
+        .sheet(isPresented: $showAddSubtask) {
+            AddTaskCategorySheet { title, priority in
+                let newTask = TaskItem(
+                    title: title,
+                    list: nil,
+                    details: "",
+                    isCompleted: false,
+                    priority: priority,
+                    isPinned: false,
+                    imageData: nil,
+                    isNotDone: false,
+                    parentTask: parentForNew,
+                    dueDate: selectedDate,
+                    isMatrixTask: true
+                )
+                modelContext.insert(newTask)
+                try? modelContext.save()
+                showAddSubtask = false
+            }
+            .presentationDetents([.fraction(0.4)])
+            .presentationDragIndicator(.visible)
+        }
     }
-  }
 
-  private func markCompleted(_ task: TaskItem) {
-    task.isCompleted = true
-    try? modelContext.save()
-  }
+    // MARK: –– Actions
+
+    private func markCompleted(_ task: TaskItem) {
+        task.isCompleted = true
+        try? modelContext.save()
+    }
 }
+
+
 
 
 
