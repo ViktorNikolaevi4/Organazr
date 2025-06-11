@@ -132,21 +132,22 @@ struct MatrixView: View {
     // Фильтрация задач по категории, только из матрицы
     private func filteredTasks(for category: EisenhowerCategory) -> [TaskItem] {
         allTasks.filter { task in
-            task.isMatrixTask && { // Фильтруем только задачи матрицы
-                guard task.dueDate != nil else { return false }
-                switch category {
-                case .urgentImportant:
-                    return task.priority == .high
-                case .notUrgentImportant:
-                    return task.priority == .medium
-                case .urgentNotImportant:
-                    return task.priority == .low
-                case .notUrgentNotImportant:
-                    return task.priority == .none
-                }
-            }()
+            // 1) Только матричные
+            guard task.isMatrixTask else { return false }
+            // 2) Не «Не буду делать»
+            guard !task.isNotDone else { return false }
+            // 3) Должна быть дата (у вас уже есть)
+            guard task.dueDate != nil else { return false }
+            // 4) Категория по приоритету
+            switch category {
+            case .urgentImportant:      return task.priority == .high
+            case .notUrgentImportant:   return task.priority == .medium
+            case .urgentNotImportant:   return task.priority == .low
+            case .notUrgentNotImportant:return task.priority == .none
+            }
         }
     }
+
 
     // Присвоение даты в зависимости от категории
     private func assignDueDate(for category: EisenhowerCategory) -> Date? {
@@ -207,7 +208,10 @@ struct MatrixDetailView: View {
     }
 
     private var pendingRows: [(task: TaskItem, level: Int)] {
-        rows.filter { !$0.task.isCompleted }
+        rows.filter { row in
+            let t = row.task
+            return !t.isCompleted && !t.isNotDone
+        }
     }
 
      private var doneRows: [(task: TaskItem, level: Int)] {
@@ -234,9 +238,8 @@ struct MatrixDetailView: View {
          }
      }
     private var flatDoneTasks: [TaskItem] {
-        // берём из `tasks` только завершённые (включая корни и подзадачи)
         func collectDone(_ task: TaskItem, into array: inout [TaskItem]) {
-            if task.isCompleted {
+            if task.isCompleted && !task.isNotDone {
                 array.append(task)
             }
             for sub in task.subtasks {
@@ -250,6 +253,7 @@ struct MatrixDetailView: View {
         }
         return result
     }
+
 
     // MARK: –– UI
 
