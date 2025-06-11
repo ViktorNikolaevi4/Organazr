@@ -3,6 +3,7 @@ import SwiftData
 
 struct MatrixView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     @Query(sort: [SortDescriptor<TaskItem>(\.title, order: .forward)]) private var allTasks: [TaskItem]
 
     @State private var selectedCategory: EisenhowerCategory? = nil
@@ -60,9 +61,18 @@ struct MatrixView: View {
             .navigationTitle("Матрица Эйзенхауэра")
             .navigationBarTitleDisplayMode(.inline)
             .sheet(item: $selectedCategory) { category in
-                MatrixDetailView(category: category, tasks: filteredTasks(for: category))
-                    .presentationDetents([.large])
-                    .presentationDragIndicator(.visible)
+                NavigationStack {
+                    MatrixDetailView(category: category, tasks: filteredTasks(for: category))
+                        .navigationTitle(category.rawValue)
+                        .navigationBarTitleDisplayMode(.inline)
+//                        .toolbar {
+//                            ToolbarItem(placement: .topBarLeading) {
+//                                Button("Закрыть") { dismiss() }
+//                            }
+//                        }
+                }
+                .presentationDetents([.large])
+                .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isAdding) {
                 AddTaskCategorySheet { title, priority in
