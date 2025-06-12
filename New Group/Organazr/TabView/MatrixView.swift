@@ -103,23 +103,34 @@ struct MatrixView: View {
     }
 
     // Ячейка матрицы
-    private func matrixCell(for category: EisenhowerCategory, color: Color, availableHeight: CGFloat) -> some View {
+    private func matrixCell(
+        for category: EisenhowerCategory,
+        color: Color,
+        availableHeight: CGFloat
+    ) -> some View {
+        // 1) Собираем и сортируем: невыполненные выше
         let tasks = filteredTasks(for: category)
-        return Button(action: {
+            .sorted { lhs, rhs in
+                !lhs.isCompleted && rhs.isCompleted
+            }
+
+        return Button {
             selectedCategory = category
-        }) {
+        } label: {
             List {
                 Section(header: Text(category.rawValue)
-                    .font(.subheadline)
-                    .foregroundColor(.black)) {
+                            .font(.subheadline)
+                            .foregroundColor(.black)) {
                     ForEach(tasks) { task in
                         Text(task.title)
                             .font(.caption)
-                            .foregroundColor(.black)
+                            // 2) Цвет: серый, если выполнена
+                            .foregroundColor(task.isCompleted ? .gray : .black)
                     }
                 }
             }
-            .frame(maxWidth: .infinity, maxHeight: availableHeight * 0.4)
+            .frame(maxWidth: .infinity,
+                   maxHeight: availableHeight * 0.4)
             .background(Color.white)
             .cornerRadius(12)
             .overlay(
@@ -129,16 +140,13 @@ struct MatrixView: View {
         }
     }
 
+
     // Фильтрация задач по категории, только из матрицы
     private func filteredTasks(for category: EisenhowerCategory) -> [TaskItem] {
         allTasks.filter { task in
-            // 1) Только матричные
             guard task.isMatrixTask else { return false }
-            // 2) Не «Не буду делать»
             guard !task.isNotDone else { return false }
-            // 3) Должна быть дата (у вас уже есть)
             guard task.dueDate != nil else { return false }
-            // 4) Категория по приоритету
             switch category {
             case .urgentImportant:      return task.priority == .high
             case .notUrgentImportant:   return task.priority == .medium
