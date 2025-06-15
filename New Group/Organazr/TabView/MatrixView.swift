@@ -6,7 +6,8 @@ struct MatrixView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: [SortDescriptor<TaskItem>(\.title, order: .forward)]) private var allTasks: [TaskItem]
 
-    @State private var selectedCategory: EisenhowerCategory? = nil
+    @State private var selectedCategory: EisenhowerCategory? = nil // Для навигации в MatrixDetailView
+    @State private var addTaskCategory: EisenhowerCategory? = nil // Для определения приоритета при добавлении
     @State private var isAdding = false
     @State private var selectedDate: Date = Date()
     private let maxDepthAllowed = 5
@@ -31,13 +32,13 @@ struct MatrixView: View {
                         Spacer().frame(height: 8)
                         VStack(spacing: 8) {
                             HStack(spacing: 16) {
-                                        matrixCell(for: .urgentImportant,   color: .red,    availableHeight: geometry.size.height)
-                                       matrixCell(for: .notUrgentImportant, color: .yellow, availableHeight: geometry.size.height) // ← было .blue
-                                   }
+                                matrixCell(for: .urgentImportant, color: .red, availableHeight: geometry.size.height)
+                                matrixCell(for: .notUrgentImportant, color: .yellow, availableHeight: geometry.size.height)
+                            }
                             HStack(spacing: 16) {
-                                 matrixCell(for: .urgentNotImportant,    color: .blue,  availableHeight: geometry.size.height) // ← было .yellow
-                                 matrixCell(for: .notUrgentNotImportant, color: .gray,  availableHeight: geometry.size.height)
-                             }
+                                matrixCell(for: .urgentNotImportant, color: .blue, availableHeight: geometry.size.height)
+                                matrixCell(for: .notUrgentNotImportant, color: .gray, availableHeight: geometry.size.height)
+                            }
                         }
                         .frame(maxHeight: geometry.size.height * 0.9)
 
@@ -47,6 +48,7 @@ struct MatrixView: View {
 
                 // Кнопка "+"
                 Button {
+                    addTaskCategory = selectedCategory ?? .urgentImportant // Используем последнюю категорию или по умолчанию
                     isAdding = true
                 } label: {
                     Image(systemName: "plus.circle.fill")
@@ -65,40 +67,36 @@ struct MatrixView: View {
                     MatrixDetailView(category: category, tasks: filteredTasks(for: category))
                         .navigationTitle(category.rawValue)
                         .navigationBarTitleDisplayMode(.inline)
-//                        .toolbar {
-//                            ToolbarItem(placement: .topBarLeading) {
-//                                Button("Закрыть") { dismiss() }
-//                            }
-//                        }
                 }
                 .presentationDetents([.large])
                 .presentationDragIndicator(.visible)
             }
             .sheet(isPresented: $isAdding) {
-                AddTaskCategorySheet { title, priority in
-                    // Здесь у нас нет категории, поэтому просто создаём задачу с выбранным приоритетом
-                    let newTask = TaskItem(
-                        title: title,
-                        list: nil,
-                        details: "",
-                        isCompleted: false,
-                        priority: priority,
-                        isPinned: false,
-                        imageData: nil,
-                        isNotDone: false,
-                        parentTask: nil,
-                        dueDate: selectedDate,
-                        isMatrixTask: true
-                    )
-                    // Если нужно, можете сами вычислить дату или что угодно
-                    newTask.dueDate = selectedDate
-                    modelContext.insert(newTask)
-                    try? modelContext.save()
-                    isAdding = false
-                }
+                AddTaskCategorySheet(
+                    initialCategory: addTaskCategory ?? .urgentImportant,
+                    onAddTask: { title, priority in
+                        let newTask = TaskItem(
+                            title: title,
+                            list: nil,
+                            details: "",
+                            isCompleted: false,
+                            priority: priority,
+                            isPinned: false,
+                            imageData: nil,
+                            isNotDone: false,
+                            parentTask: nil,
+                            dueDate: selectedDate,
+                            isMatrixTask: true
+                        )
+                        modelContext.insert(newTask)
+                        try? modelContext.save()
+                        isAdding = false
+                    }
+                )
                 .presentationDetents([.fraction(0.4)])
                 .presentationDragIndicator(.visible)
             }
+
         }
     }
 
@@ -108,7 +106,6 @@ struct MatrixView: View {
         color: Color,
         availableHeight: CGFloat
     ) -> some View {
-        // 1) Собираем и сортируем: невыполненные выше
         let tasks = filteredTasks(for: category)
             .sorted { lhs, rhs in
                 !lhs.isCompleted && rhs.isCompleted
@@ -116,6 +113,7 @@ struct MatrixView: View {
 
         return Button {
             selectedCategory = category
+            addTaskCategory = category // Обновляем категорию для добавления
         } label: {
             List {
                 Section(header: Text(category.rawValue)
@@ -124,7 +122,6 @@ struct MatrixView: View {
                     ForEach(tasks) { task in
                         Text(task.title)
                             .font(.caption)
-                            // 2) Цвет: серый, если выполнена
                             .foregroundColor(task.isCompleted ? .gray : .black)
                     }
                 }
@@ -140,7 +137,6 @@ struct MatrixView: View {
         }
     }
 
-
     // Фильтрация задач по категории, только из матрицы
     private func filteredTasks(for category: EisenhowerCategory) -> [TaskItem] {
         allTasks.filter { task in
@@ -151,11 +147,10 @@ struct MatrixView: View {
             case .urgentImportant:      return task.priority == .high
             case .notUrgentImportant:   return task.priority == .medium
             case .urgentNotImportant:   return task.priority == .low
-            case .notUrgentNotImportant:return task.priority == .none
+            case .notUrgentNotImportant: return task.priority == .none
             }
         }
     }
-
 
     // Присвоение даты в зависимости от категории
     private func assignDueDate(for category: EisenhowerCategory) -> Date? {
@@ -169,6 +164,17 @@ struct MatrixView: View {
             return calendar.date(byAdding: .day, value: 2, to: Date())
         case .notUrgentNotImportant:
             return calendar.date(byAdding: .day, value: 14, to: Date())
+        }
+    }
+
+    // Определение приоритета на основе категории
+    private func priorityForCategory(_ category: EisenhowerCategory?) -> Priority {
+        guard let category = category else { return .high } // По умолчанию "Срочно и важно", если категория не выбрана
+        switch category {
+        case .urgentImportant:      return .high
+        case .notUrgentImportant:   return .medium
+        case .urgentNotImportant:   return .low
+        case .notUrgentNotImportant: return .none
         }
     }
 }
@@ -194,7 +200,6 @@ struct MatrixDetailView: View {
     @State private var expandedStates: [UUID: Bool] = [:]
 
     // MARK: –– Формируем плоский список
-
     private var rows: [(task: TaskItem, level: Int)] {
         var result: [(TaskItem, Int)] = []
         for task in tasks.filter({ $0.parentTask == nil }) {
@@ -222,29 +227,27 @@ struct MatrixDetailView: View {
         }
     }
 
-     private var doneRows: [(task: TaskItem, level: Int)] {
+    private var doneRows: [(task: TaskItem, level: Int)] {
         var result: [(TaskItem, Int)] = []
-        // Проходим по всем корневым задачам (parent == nil)
         for root in tasks.filter({ $0.parentTask == nil }) {
-             traverseDone(task: root, level: 0, into: &result)
-         }
+            traverseDone(task: root, level: 0, into: &result)
+        }
         return result
-     }
+    }
 
-     private func traverseDone(
-         task: TaskItem,
-         level: Int,
-         into array: inout [(TaskItem, Int)]
-     ) {
-         // если эта задача завершена — добавляем её
-         if task.isCompleted {
-             array.append((task, level))
-         }
-         // всегда идём дальше по всем подзадачам
-         for sub in task.subtasks {
-             traverseDone(task: sub, level: level + 1, into: &array)
-         }
-     }
+    private func traverseDone(
+        task: TaskItem,
+        level: Int,
+        into array: inout [(TaskItem, Int)]
+    ) {
+        if task.isCompleted {
+            array.append((task, level))
+        }
+        for sub in task.subtasks {
+            traverseDone(task: sub, level: level + 1, into: &array)
+        }
+    }
+
     private var flatDoneTasks: [TaskItem] {
         func collectDone(_ task: TaskItem, into array: inout [TaskItem]) {
             if task.isCompleted && !task.isNotDone {
@@ -262,9 +265,7 @@ struct MatrixDetailView: View {
         return result
     }
 
-
     // MARK: –– UI
-
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             List {
@@ -302,19 +303,11 @@ struct MatrixDetailView: View {
                         ForEach(done) { task in
                             TaskRowView(
                                 task: task,
-                                level: 0,                    // все на одном уровне
+                                level: 0,
                                 completeAction: unmarkCompleted,
                                 onTap: { selectedTask = $0 },
-                                isExpanded: .constant(false) // без стрелки
+                                isExpanded: .constant(false)
                             )
-//                            .swipeActions {
-//                                Button(role: .destructive) {
-//                                    modelContext.delete(task)
-//                                    try? modelContext.save()
-//                                } label: {
-//                                    Label("Удалить", systemImage: "trash")
-//                                }
-//                            }
                         }
                     }
                 }
@@ -353,36 +346,36 @@ struct MatrixDetailView: View {
         }
         // добавление
         .sheet(isPresented: $showAddSubtask) {
-            AddTaskCategorySheet { title, priority in
-                let newTask = TaskItem(
-                    title: title,
-                    list: nil,
-                    details: "",
-                    isCompleted: false,
-                    priority: priority,
-                    isPinned: false,
-                    imageData: nil,
-                    isNotDone: false,
-                    parentTask: parentForNew,
-                    dueDate: selectedDate,
-                    isMatrixTask: true
-                )
-                modelContext.insert(newTask)
-                try? modelContext.save()
-                showAddSubtask = false
-            }
+            AddTaskCategorySheet(
+                initialCategory: category, // Передаем категорию напрямую
+                onAddTask: { title, priority in
+                    let newTask = TaskItem(
+                        title: title,
+                        list: nil,
+                        details: "",
+                        isCompleted: false,
+                        priority: priority,
+                        isPinned: false,
+                        imageData: nil,
+                        isNotDone: false,
+                        parentTask: parentForNew,
+                        dueDate: selectedDate,
+                        isMatrixTask: true
+                    )
+                    modelContext.insert(newTask)
+                    try? modelContext.save()
+                    showAddSubtask = false
+                }
+            )
             .presentationDetents([.fraction(0.4)])
             .presentationDragIndicator(.visible)
         }
     }
 
     // MARK: –– Actions
-
-    /// Помечает задачу и все её подзадачи выполненными
     private func markCompleted(_ task: TaskItem) {
         func cascadeComplete(_ t: TaskItem) {
             t.isCompleted = true
-            // рекурсивно для каждого прямого потомка
             for sub in t.subtasks {
                 cascadeComplete(sub)
             }
@@ -391,9 +384,7 @@ struct MatrixDetailView: View {
         try? modelContext.save()
     }
 
-    /// Снимает отметку completed с этой задачи и со всех её родителей
     private func unmarkCompleted(_ task: TaskItem) {
-        // рекурсивно идём вверх по дереву
         func cascadeUndone(_ t: TaskItem?) {
             guard let t = t, t.isCompleted else { return }
             t.isCompleted = false
@@ -402,12 +393,11 @@ struct MatrixDetailView: View {
         cascadeUndone(task)
         try? modelContext.save()
     }
-
 }
 
 struct AddTaskCategorySheet: View {
-    /// начальный приоритет (чтобы меню сразу подсветило)
-    let initialPriority: Priority
+    /// начальная категория (для определения приоритета)
+    let initialCategory: MatrixView.EisenhowerCategory
 
     /// коллбэк, возвращает название + выбранный приоритет
     var onAddTask: (String, Priority) -> Void
@@ -416,15 +406,15 @@ struct AddTaskCategorySheet: View {
     @State private var selectedPriority: Priority
     @Environment(\.dismiss) private var dismiss
 
-    /// свой собственный инициализатор, чтобы покинуть `selectedPriority` в нужном значении
+    /// свой собственный инициализатор, чтобы установить `selectedPriority` на основе категории
     init(
-        initialPriority: Priority = .high,
+        initialCategory: MatrixView.EisenhowerCategory,
         onAddTask: @escaping (String, Priority) -> Void
     ) {
-        self.initialPriority = initialPriority
+        self.initialCategory = initialCategory
         self.onAddTask = onAddTask
-        // инициализируем @State из аргумента
-        _selectedPriority = State(initialValue: initialPriority)
+        // Инициализируем @State на основе initialCategory
+        _selectedPriority = State(initialValue: Self.priorityForCategory(initialCategory))
     }
 
     var body: some View {
@@ -488,6 +478,16 @@ struct AddTaskCategorySheet: View {
                     Button("Отмена") { dismiss() }
                 }
             }
+        }
+    }
+
+    // Статический метод для определения приоритета на основе категории
+    private static func priorityForCategory(_ category: MatrixView.EisenhowerCategory) -> Priority {
+        switch category {
+        case .urgentImportant:      return .high
+        case .notUrgentImportant:   return .medium
+        case .urgentNotImportant:   return .low
+        case .notUrgentNotImportant: return .none
         }
     }
 }
