@@ -219,11 +219,15 @@ struct MatrixDetailView: View {
             flatten(task: sub, level: level + 1, into: &array)
         }
     }
+    private var pinnedRows: [(task: TaskItem, level: Int)] {
+        rows.filter { $0.task.isPinned }
+    }
 
     private var pendingRows: [(task: TaskItem, level: Int)] {
-        rows.filter { row in
-            let t = row.task
-            return !t.isCompleted && !t.isNotDone
+        rows.filter {
+            !$0.task.isCompleted
+            && !$0.task.isNotDone
+            && !$0.task.isPinned      // Исключаем закреплённые
         }
     }
 
@@ -269,6 +273,33 @@ struct MatrixDetailView: View {
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
             List {
+                // ——— Закреплённые ———
+                if !pinnedRows.isEmpty {
+                     Section(header: Text("Закрепленные")) {
+                         ForEach(pinnedRows, id: \.task.id) { row in
+                             TaskRowView(
+                                 task: row.task,
+                                 level: row.level,
+                                 completeAction: markCompleted,
+                                 onTap: { selectedTask = $0 },
+                                 isExpanded: Binding(
+                                     get: { expandedStates[row.task.id] ?? false },
+                                     set: { expandedStates[row.task.id] = $0 }
+                                 )
+                             )
+                             .swipeActions {
+                                 // Открепить
+                                 Button {
+                                     row.task.isPinned = false
+                                     try? modelContext.save()
+                                 } label: {
+                                     Label("Открепить", systemImage: "pin.slash")
+                                 }
+                                 .tint(.orange)
+                             }
+                         }
+                     }
+                 }
                 // ——— Открытые ———
                 if !pendingRows.isEmpty {
                     Section(header: Text("Открытые")) {
