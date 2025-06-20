@@ -199,6 +199,8 @@ struct MatrixDetailView: View {
     // разворачивание
     @State private var expandedStates: [UUID: Bool] = [:]
 
+    @State private var isPinnedExpanded = true
+
     // MARK: –– Формируем плоский список
     private var rows: [(task: TaskItem, level: Int)] {
         var result: [(TaskItem, Int)] = []
@@ -275,31 +277,57 @@ struct MatrixDetailView: View {
             List {
                 // ——— Закреплённые ———
                 if !pinnedRows.isEmpty {
-                     Section(header: Text("Закрепленные")) {
-                         ForEach(pinnedRows, id: \.task.id) { row in
-                             TaskRowView(
-                                 task: row.task,
-                                 level: row.level,
-                                 completeAction: markCompleted,
-                                 onTap: { selectedTask = $0 },
-                                 isExpanded: Binding(
-                                     get: { expandedStates[row.task.id] ?? false },
-                                     set: { expandedStates[row.task.id] = $0 }
-                                 )
-                             )
-                             .swipeActions {
-                                 // Открепить
-                                 Button {
-                                     row.task.isPinned = false
-                                     try? modelContext.save()
-                                 } label: {
-                                     Label("Открепить", systemImage: "pin.slash")
-                                 }
-                                 .tint(.orange)
-                             }
-                         }
-                     }
-                 }
+                    Section(
+                        header:
+                            HStack(spacing: 8) {
+                                Image(systemName: "pin.fill")
+                                    .foregroundColor(.orange)
+
+                                Text("Закреплённые")
+                                    .font(.subheadline)
+                                    .fontWeight(.semibold)
+
+                                Spacer()
+
+                                Text("\(pinnedRows.count)")
+                                    .font(.subheadline)
+                                    .foregroundColor(.secondary)
+
+                                // Кнопка только на стрелочку
+                                Button {
+                                    withAnimation {
+                                        isPinnedExpanded.toggle()
+                                    }
+                                } label: {
+                                    Image(systemName: isPinnedExpanded ? "chevron.down" : "chevron.right")
+                                        .foregroundColor(.secondary)
+                                }
+                                .buttonStyle(.plain) // чтобы не было лишних эффектов
+                            }
+                    ) {
+                        if isPinnedExpanded {
+                            ForEach(pinnedRows, id: \.task.id) { row in
+                                TaskRowView(
+                                    task: row.task,
+                                    level: row.level,
+                                    completeAction: markCompleted,
+                                    onTap: { selectedTask = $0 },
+                                    isExpanded: Binding(
+                                        get: { expandedStates[row.task.id] ?? false },
+                                        set: { expandedStates[row.task.id] = $0 }
+                                    )
+                                )
+                                .swipeActions {
+                                    Button("Открепить", systemImage: "pin.slash") {
+                                        row.task.isPinned = false
+                                        try? modelContext.save()
+                                    }
+                                    .tint(.orange)
+                                }
+                            }
+                        }
+                    }
+                }
                 // ——— Открытые ———
                 if !pendingRows.isEmpty {
                     Section(header: Text("Открытые")) {
@@ -547,3 +575,14 @@ extension Priority {
         }
     }
 }
+
+//TaskRowView(
+//    task: row.task,
+//    level: row.level,
+//    completeAction: markCompleted,
+//    onTap: { selectedTask = $0 },
+//    isExpanded: Binding(
+//        get: { expandedStates[row.task.id] ?? false },
+//        set: { expandedStates[row.task.id] = $0 }
+//    )
+//)
